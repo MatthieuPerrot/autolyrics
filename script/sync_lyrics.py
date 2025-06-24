@@ -404,17 +404,16 @@ class LyricsSyncer:
             return False
 
         # 1. Obtenir le contenu SRT en mémoire
-        srt_content_stream = StringIO()
+        srt_content_string = None
         try:
-            self.raw_alignment_result.to_srt_vtt(srt_content_stream, word_level=True)
-            srt_content_string = srt_content_stream.getvalue()
-            srt_content_stream.close()
+            # Demander à to_srt_vtt de retourner une chaîne en passant filepath=None
+            srt_content_string = self.raw_alignment_result.to_srt_vtt(filepath=None, word_level=True)
         except Exception as e:
             print(f"❌ Erreur lors de la génération du contenu SRT en mémoire : {e}")
             return False
 
-        if not srt_content_string.strip():
-            print("❌ Contenu SRT généré par stable-ts est vide.")
+        if not srt_content_string or not srt_content_string.strip():
+            print("❌ Contenu SRT généré par stable-ts est vide ou None.")
             return False
 
         # 2. Convertir le contenu SRT en données LRC
