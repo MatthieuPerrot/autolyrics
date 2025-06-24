@@ -32,7 +32,8 @@ def convert_line_romaji_to_kana(line, mode="hira"):
     """
     if not katsu:
         raise RuntimeError("Cutlet n'a pas été initialisé correctement.")
-    line = line.strip().lower()
+
+    line = line.strip()
     if not line:
         return ""
 
@@ -41,6 +42,9 @@ def convert_line_romaji_to_kana(line, mode="hira"):
     # Cutlet gère différents systèmes de romaji.
     # La sortie par défaut est en katakana pour les mots étrangers, hiragana pour le reste.
 
+    # katsu.romaji_to_kana(text, system=None, kana_sys='hira', ignore_unknown=False)
+    # kana_sys: 'hira', 'kata', or 'auto' (default, mixed)
+
     kana_system_target = 'hira' # Par défaut Hiragana
     if mode.lower() == 'k':
         kana_system_target = 'kata'
@@ -48,12 +52,14 @@ def convert_line_romaji_to_kana(line, mode="hira"):
         kana_system_target = 'hira'
     # On pourrait ajouter 'auto' si on veut un mix intelligent, mais pour les paroles,
     # forcer en hiragana est souvent plus cohérent, sauf pour les mots d'emprunt.
+
     try:
         # Tenter de convertir la ligne. Cutlet peut lever des erreurs si le romaji est ambigu
         # ou s'il contient des parties non convertibles qu'il ne sait pas ignorer par défaut.
         # Pour des paroles, il est possible qu'il y ait des mots anglais ou des onomatopées.
         # On va essayer de segmenter par espace et convertir chaque "mot"
         # pour mieux gérer les parties non-japonaises.
+
         words = line.split(' ')
         converted_words = []
         for word in words:
@@ -62,22 +68,23 @@ def convert_line_romaji_to_kana(line, mode="hira"):
             # Vérifier si le mot est purement ASCII et pourrait être un mot étranger/onomatopée
             # que cutlet ne devrait pas essayer de convertir ou convertirait mal.
             # C'est une heuristique simple.
-            try:
-                if kana_system_target == 'hira':
-                    converted_segment = cutlet.jaconv.alphabet2kana(word)
-                # Si la conversion ne change rien pour un mot purement ascii,
-                # ou produit quelque chose d'étrange, on pourrait préférer l'original.
-                # Pour l'instant, on fait confiance à cutlet.
-                elif kana_system_target == 'kata':
-                    converted_segment = cutlet.jaconv.alphabet2kata(word)
-                converted_words.append(converted_segment)
-            except Exception as e: # Si cutlet échoue sur un mot spécifique
-                print(f"Avertissement : Impossible de convertir le mot '{word}' : {e}. Il sera gardé en l'état.")
-                converted_words.append(word) # Garder le mot original
+            if all(32 <= ord(char) < 127 for char in word) and not any(c in 'āīūēō macron' for c in word.lower()):
+                 # On peut essayer de voir si cutlet le convertit, sinon on le garde tel quel.
+                try:
+                    converted_segment = katsu.romaji_to_kana(word, kana_sys=kana_system_target)
+                    # Si la conversion ne change rien pour un mot purement ascii,
+                    # ou produit quelque chose d'étrange, on pourrait préférer l'original.
+                    # Pour l'instant, on fait confiance à cutlet.
+                    converted_words.append(converted_segment)
+                except Exception: # Si cutlet échoue sur un mot spécifique
+                    converted_words.append(word) # Garder le mot original
+            else: # Contient des macrons ou n'est pas full ASCII simple, probable romaji
+                converted_words.append(katsu.romaji_to_kana(word, kana_sys=kana_system_target))
+
         return ' '.join(converted_words)
 
     except Exception as e:
-        print(f"Avertissement : Impossible de convertir la ligne '{line}' : {e}. Elle sera gardée en l'état.")
+        # print(f"Avertissement : Impossible de convertir la ligne '{line}' : {e}. Elle sera gardée en l'état.")
         # Pour l'instant, si la ligne entière échoue, on la garde en l'état.
         # Une meilleure gestion serait de convertir mot à mot et de garder les mots problématiques en romaji.
         # La logique ci-dessus tente déjà cela.
@@ -101,19 +108,23 @@ def convert_file_romaji_to_kana(input_filepath, output_filepath, mode="H"):
     print(f"Début de la conversion de {input_filepath} vers {output_filepath} (mode: {mode})")
     line_count = 0
     converted_count = 0
+
     try:
         with open(input_filepath, 'r', encoding='utf-8') as infile, \
              open(output_filepath, 'w', encoding='utf-8') as outfile:
+
             for line in infile:
                 line_count += 1
                 original_line = line.strip()
                 if not original_line:
                     outfile.write("\n")
                     continue
+
                 converted_line = convert_line_romaji_to_kana(original_line, mode)
                 outfile.write(converted_line + "\n")
                 if original_line != converted_line: # Simple vérification si quelque chose a changé
                     converted_count +=1
+
         print(f"Conversion terminée. {converted_count}/{line_count} lignes ont été modifiées (approximativement).")
         print(f"Fichier de sortie : {output_filepath}")
 

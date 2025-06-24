@@ -21,9 +21,12 @@ Ce projet contient des scripts pour récupérer et synchroniser des paroles de c
         *   Génère des timestamps au niveau du mot, produisant un fichier LRC Enhanced.
         *   **Dépendances importantes :** `stable-ts`, `torch`, `torchaudio`, `openai-whisper`. PyTorch et les modèles Whisper peuvent être volumineux. L'exécution se fait sur CPU par défaut dans le script, ce qui peut être lent pour les gros modèles ou les longues chansons.
         *   Les modèles Whisper sont téléchargés automatiquement par la bibliothèque lors de la première utilisation d'un modèle spécifique.
-        *   Commande : `python script/sync_lyrics.py audio.mp3 paroles.txt --mode auto_stablets --st_model base --st_lang ja`
+        *   Format de sortie par défaut pour ce mode : `.srt`. Peut être changé en `.lrc` avec l'option `--output_format lrc`.
+        *   La conversion SRT vers LRC est expérimentale et peut nécessiter des ajustements.
+        *   Commande : `python script/sync_lyrics.py audio.mp3 paroles.txt --mode auto_stablets --st_model base --st_lang ja --output_format srt`
             *   `--st_model` : Choix du modèle Whisper (ex: `tiny`, `base`, `small`, `medium`). Les plus petits sont plus rapides mais moins précis.
             *   `--st_lang` : Code langue pour Whisper (ex: `ja` pour japonais, `en` pour anglais).
+            *   `--output_format` : `srt` (défaut) ou `lrc`. Spécifie le format du fichier de sortie synchronisé.
 
 ## Structure des documents d'analyse (dans `docs/`)
 *   `01_context_fonctionnel_et_technique.md`: Contexte du projet.
