@@ -15,7 +15,7 @@ import re
 SRT_BLOCK_PATTERN = re.compile(
     r"(\d+)\s*[\r\n]+"  # 1: Index
     r"(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\s*[\r\n]+"  # 2 & 3: Start & End timestamps
-    r"((?:.+[\r\n])+)(^\s*[\r\n])",  # 4: Text (peut être sur plusieurs lignes)
+    r"((?:.+[\r\n])+)(?:^\s*[\r\n]|$)",  # 4: Text (peut être sur plusieurs lignes), suivi par ligne vide ou fin de chaîne
     re.MULTILINE
 )
 
@@ -105,8 +105,8 @@ def postprocess_srt(input_srt_path, original_lyrics_path, output_srt_path, displ
                                              f"{block['start_time']} --> {block['end_time']}\n"
                                              f"{highlighted_text.strip()}\n")
                     new_block_index += 1
-            else: # Pas de surbrillance == pas de paroles
-                pass
+            else: # Pas de surbrillance == pas de paroles significatives à isoler pour ce mode
+                pass # On ignore ce bloc
 
     elif display_mode in ["line", "line_plus_next"]:
         # Précalculer les offsets de début de chaque ligne originale (nettoyée)
@@ -122,6 +122,8 @@ def postprocess_srt(input_srt_path, original_lyrics_path, output_srt_path, displ
         for block in srt_blocks:
             match_highlight = HIGHLIGHT_PATTERN.match(block["text_with_highlight"])
             if not match_highlight:
+                # Si pas de surbrillance, on ignore ce bloc car il n'y a pas de point d'ancrage
+                # pour déterminer la ligne courante de manière fiable pour ces modes.
                 continue
 
             text_before_font, highlighted_segment_with_font, text_after_font = match_highlight.groups()
