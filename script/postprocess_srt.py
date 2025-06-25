@@ -180,12 +180,10 @@ def postprocess_srt(input_srt_path, original_lyrics_path, output_srt_path, displ
                     # Pour la ligne suivante, on la prend telle quelle, sans surbrillance de style 'line_all'
                     # sauf si on change cette logique. Pour 'none', elle sera propre.
                     next_line_text = original_lines[line_idx + 1].strip()
-                    if highlight_style == "line_all": # Surligner aussi la ligne suivante
-                         final_text_for_block += f"\n<font color=\"#00ff00\">{next_line_text}</font>"
+                    if highlight_style in ["line_all", "preserve"]: # Surligner aussi la ligne suivanteAdd commentMore actions
+                         final_text_for_block += f"\n<font color=\"#aaaaaa\">{next_line_text}</font>"
                     elif highlight_style == "none":
                          final_text_for_block += "\n" + next_line_text # Déjà propre
-                    # (La logique pour 'preserve' est implicitement gérée par le if ["line_all", "preserve"] ci-dessus
-                    # pour la coloration grise de la next_line_text)
 
             output_srt_content_parts.append(f"{new_block_index}\n"
                                          f"{block['start_time']} --> {block['end_time']}\n"
