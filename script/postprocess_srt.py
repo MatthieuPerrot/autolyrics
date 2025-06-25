@@ -16,13 +16,13 @@ SRT_BLOCK_PATTERN = re.compile(
     r"(\d+)\s*[\r\n]+"  # 1: Index
     r"(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\s*[\r\n]+"  # 2 & 3: Start & End timestamps
     # 4: Text (peut être sur plusieurs lignes), suivi par ligne vide ou fin de chaîne (non-capturant)
-    r"((?:.+[\r\n]*)+?)(?:\r?\n\r?\n|$)", # S'assurer que le texte est capturé correctement même s'il n'y a qu'une ligne
+    r"((?:.+[\r\n])+)(?:^\s*[\r\n]|$)",  # 4: Text (peut être sur plusieurs lignes), suivi par ligne vide ou fin de chaîne
     re.MULTILINE
 )
 
 # Regex pour trouver le segment en surbrillance (ex: <font color="#00ff00">mot</font>)
 # et capturer le texte avant, le texte en surbrillance, et le texte après.
-HIGHLIGHT_PATTERN = re.compile(r"(.*?)<font color=\"[^\"]+\">(.*?)</font>(.*)", re.DOTALL)
+HIGHLIGHT_PATTERN = re.compile(r"(.*?)(<font color=\"[^\"]+\">.*?</font>)(.*)", re.DOTALL)
 
 def clean_text_remove_font_tags(text_segment):
     """Nettoie un segment de texte de ses balises <font>."""
@@ -105,6 +105,8 @@ def postprocess_srt(input_srt_path, original_lyrics_path, output_srt_path, displ
                                              f"{block['start_time']} --> {block['end_time']}\n"
                                              f"{final_text_for_block}")
                     new_block_index += 1
+            else: # Pas de surbrillance == pas de paroles significatives à isoler pour ce mode
+                pass # On ignore ce bloc
 
     elif display_mode in ["line", "line_plus_next"]:
         original_line_global_start_offsets = [0] * len(original_lines_stripped_for_logic)
@@ -182,8 +184,8 @@ def postprocess_srt(input_srt_path, original_lyrics_path, output_srt_path, displ
                          final_text_for_block += f"\n<font color=\"#00ff00\">{next_line_text}</font>"
                     elif highlight_style == "none":
                          final_text_for_block += "\n" + next_line_text # Déjà propre
-                    else: # preserve (la ligne suivante n'a pas de surbrillance à préserver)
-                         final_text_for_block += "\n" + next_line_text
+                    # Pas de 'else', car si c'est 'preserve', la ligne suivante n'a pas de surbrillance à préserver intrinsèquement
+                    # elle est juste ajoutée. La coloration grise est déjà appliquée si highlight_style == 'preserve'.
 
 
             output_srt_content_parts.append(f"{new_block_index}\n"

@@ -36,8 +36,8 @@ Ce projet contient des scripts pour récupérer et synchroniser des paroles de c
         *   `line` : Chaque entrée SRT affiche la ligne de paroles originale complète où se trouve le mot/segment en surbrillance.
         *   `line_plus_next` : Comme `line`, mais affiche aussi la ligne de paroles originale suivante.
     *   **Styles de surbrillance (`--highlight_style`) pour les modes `line` et `line_plus_next` (et partiellement `word`) :**
-        *   `preserve` (défaut) : Conserve la surbrillance `<font ...>` du segment d'origine tel qu'il est inséré dans la ligne.
-        *   `line_all` : Met en surbrillance l'intégralité de la ligne courante (ou des deux lignes pour `line_plus_next`, chaque ligne étant balisée séparément). Pour le mode `word`, surligne le mot isolé.
+        *   `preserve` (défaut) : Conserve la surbrillance `<font ...>` du segment d'origine tel qu'il est inséré dans la ligne courante. En mode `line_plus_next`, la ligne suivante est affichée en gris (`<font color="#aaaaaa">...</font>`).
+        *   `line_all` : Met en surbrillance l'intégralité de la ligne courante en couleur principale (ex: `#00ff00`). En mode `line_plus_next`, la ligne suivante est également mise en surbrillance mais en gris (`<font color="#aaaaaa">...</font>`). Pour le mode `word`, surligne le mot isolé avec la couleur principale.
         *   `none` : Aucune surbrillance. Affiche le texte brut des lignes (ou du mot pour le mode `word`).
     *   *Note : La robustesse du positionnement de la surbrillance dans les modes `line` et `line_plus_next` dépend de la cohérence entre le texte du SRT d'entrée et les paroles originales.*
 
