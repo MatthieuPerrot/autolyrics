@@ -32,9 +32,14 @@ Ce projet contient des scripts pour récupérer et synchroniser des paroles de c
     *   Prend en entrée le `.srt` détaillé et le fichier `.txt` des paroles originales (pour la structure des lignes).
     *   Commande : `python script/postprocess_srt.py input_detailed.srt original_lyrics.txt output_processed.srt --display_mode <mode>`
     *   **Modes d'affichage (`--display_mode`) :**
-        *   `word` (défaut) : Chaque entrée SRT dans le fichier de sortie contient uniquement le mot/segment qui était en surbrillance dans le fichier d'entrée. Ce mode est fonctionnel.
-        *   `line` : **(En développement)** Vise à afficher la ligne de paroles originale complète où se trouve le mot/segment en surbrillance, avec ce dernier conservant sa surbrillance. L'implémentation actuelle est préliminaire.
-        *   `line_plus_next` : **(En développement)** Vise à faire comme `line`, mais affiche aussi la ligne de paroles originale suivante. L'implémentation actuelle est préliminaire.
+        *   `word` (défaut) : Chaque entrée SRT dans le fichier de sortie contient uniquement le mot/segment qui était en surbrillance dans le fichier d'entrée.
+        *   `line` : Chaque entrée SRT affiche la ligne de paroles originale complète où se trouve le mot/segment en surbrillance.
+        *   `line_plus_next` : Comme `line`, mais affiche aussi la ligne de paroles originale suivante.
+    *   **Styles de surbrillance (`--highlight_style`) pour les modes `line` et `line_plus_next` (et partiellement `word`) :**
+        *   `preserve` (défaut) : Conserve la surbrillance `<font ...>` du segment d'origine tel qu'il est inséré dans la ligne.
+        *   `line_all` : Met en surbrillance l'intégralité de la ligne courante (ou des deux lignes pour `line_plus_next`, chaque ligne étant balisée séparément). Pour le mode `word`, surligne le mot isolé.
+        *   `none` : Aucune surbrillance. Affiche le texte brut des lignes (ou du mot pour le mode `word`).
+    *   *Note : La robustesse du positionnement de la surbrillance dans les modes `line` et `line_plus_next` dépend de la cohérence entre le texte du SRT d'entrée et les paroles originales.*
 
 ## Structure des documents d'analyse (dans `docs/`)
 *   `01_context_fonctionnel_et_technique.md`: Contexte du projet.
