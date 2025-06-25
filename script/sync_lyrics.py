@@ -20,26 +20,15 @@ class LyricsSyncer:
     """
     Classe pour gérer la synchronisation des paroles.
     """
-    def __init__(self, mp3_path, lyrics_path, output_path=None, output_format="srt"):
+    def __init__(self, mp3_path, lyrics_path, output_path_arg=None, mode="line"):
         self.mp3_path = mp3_path
         self.lyrics_path = lyrics_path
-        self.output_format = output_format # srt ou lrc
-        self.output_path = output_path or self._generate_output_path()
+        self.mode = mode
+        # self.output_path et self.output_format seront définis par _determine_output_format_and_path
+        self.output_path = None
+        self.output_format = None
 
-        # Le nom de fichier de sortie dépend maintenant du format demandé
-        # Si output_path est fourni par l'utilisateur, on respecte son extension.
-        # Sinon, on s'assure que l'extension générée correspond à output_format.
-        if not output_path: # Si le chemin est auto-généré
-            base, _ = os.path.splitext(self.output_path)
-            self.output_path = f"{base}.{self.output_format}"
-        else: # Si fourni par l'utilisateur, on met à jour output_format basé sur l'extension fournie
-            _, ext = os.path.splitext(output_path)
-            actual_format = ext.lstrip('.')
-            if actual_format in ["lrc", "srt"]:
-                self.output_format = actual_format
-            # Si l'extension n'est ni lrc ni srt, on garde output_format par défaut et
-            # on espère que l'utilisateur sait ce qu'il fait, ou on pourrait lever une erreur.
-            # Pour l'instant, on priorise l'extension fournie par l'utilisateur s'il en met une.
+        self._determine_output_format_and_path(output_path_arg)
 
         if not os.path.exists(self.mp3_path):
             raise FileNotFoundError(f"Fichier MP3 non trouvé : {self.mp3_path}")
@@ -270,183 +259,42 @@ class LyricsSyncer:
             print("❌ Aucun résultat d'alignement stable-ts à sauvegarder en SRT.")
             return False
 
+        # S'assurer que le chemin de sortie a bien l'extension .srt
+        # Normalement déjà géré par _determine_output_format_and_path si mode='auto_stablets'
+        # et aucun output_path_arg n'a été fourni avec une autre extension.
+        # Mais on peut forcer ici pour être sûr si cette méthode est appelée directement.
+        base, _ = os.path.splitext(output_path_srt)
+        actual_output_path_srt = f"{base}.srt"
+
         try:
-            # word_level=True pour avoir des timestamps par mot si possible
-            # (stable-ts essaie de produire cela par défaut avec regroup=False)
-            self.raw_alignment_result.to_srt_vtt(output_path_srt, word_level=True)
-            print(f"✅ Fichier SRT sauvegardé : {output_path_srt}")
+            self.raw_alignment_result.to_srt_vtt(actual_output_path_srt, word_level=True)
+            print(f"✅ Fichier SRT sauvegardé : {actual_output_path_srt}")
+            # Mettre à jour self.output_path au cas où l'extension aurait été forcée ici
+            self.output_path = actual_output_path_srt
             return True
         except Exception as e:
             print(f"❌ Erreur lors de la sauvegarde du fichier SRT : {e}")
             return False
 
-    def _convert_stable_ts_result_to_lrc(self):
-        """
-        Convertit le résultat brut de stable-ts (self.raw_alignment_result)
-        en une liste de chaînes au format LRC Enhanced.
-        Cette méthode est maintenant un fallback si la conversion SRT->LRC échoue ou n'est pas choisie,
-        mais la méthode privilégiée est _convert_srt_content_to_lrc_data.
-        """
-        # ... (ancienne logique gardée pour référence, mais devrait être dépréciée/supprimée
-        #      en faveur de la conversion SRT -> LRC)
-        print("Avertissement : _convert_stable_ts_result_to_lrc est appelée, "
-              "envisager d'utiliser la conversion SRT->LRC.")
-        # Pour l'instant, on retourne une liste vide pour forcer l'utilisation de la nouvelle méthode.
-        return []
-
-
-    def _parse_srt_time(self, srt_time_str):
-        """Convertit un timestamp SRT (HH:MM:SS,mmm) en secondes totales (float)."""
-        parts = srt_time_str.split(',')
-        h_m_s = parts[0].split(':')
-        hours = int(h_m_s[0])
-        minutes = int(h_m_s[1])
-        seconds = int(h_m_s[2])
-        milliseconds = int(parts[1])
-        total_seconds = hours * 3600 + minutes * 60 + seconds + milliseconds / 1000.0
-        return total_seconds
-
-    def _convert_srt_content_to_lrc_data(self, srt_content_string):
-        """
-        Convertit une chaîne de contenu SRT (mot par mot) en une liste de chaînes LRC Enhanced.
-        """
-        lrc_lines = []
-        # Regex pour parser un bloc SRT: index, times, text
-        # Le texte peut être sur plusieurs lignes, d'où re.DOTALL
-        srt_block_pattern = re.compile(
-            r"^\d+\s*[\r\n]+"
-            r"(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\s*[\r\n]+"
-            r"(.+?)(?:[\r\n]{2,}|$)",  # Non-capturing group for double newlines or end of string
-            re.MULTILINE | re.DOTALL
-        )
-
-        # Le SRT généré par stable-ts avec word_level=True a chaque mot comme un bloc SRT.
-        # Nous devons regrouper ces mots en lignes basées sur le fichier de paroles original.
-
-        original_line_iter = iter(self.raw_lyrics_lines)
-        current_original_line = next(original_line_iter, None)
-        current_lrc_line_parts = []
-        first_word_timestamp_in_line = -1.0
-
-        for match in srt_block_pattern.finditer(srt_content_string):
-            srt_start_time_str, _, srt_word_text = match.groups()
-            srt_word_text = srt_word_text.strip() # Nettoyer le texte du mot
-
-            if not srt_word_text: # Skip empty text blocks in SRT if any
-                continue
-
-            word_start_sec = self._parse_srt_time(srt_start_time_str)
-
-            if not current_original_line: # Plus de lignes originales à traiter
-                print("Avertissement: Plus de mots dans SRT que de lignes originales restantes.")
-                break
-
-            if not current_lrc_line_parts: # Début d'une nouvelle ligne LRC
-                first_word_timestamp_in_line = word_start_sec
-                current_lrc_line_parts.append(f"[{self._format_time(first_word_timestamp_in_line)}]")
-
-            current_lrc_line_parts.append(f"<{self._format_time(word_start_sec)}>{srt_word_text}")
-
-            # Heuristique simple pour savoir quand terminer une ligne LRC:
-            # si le mot SRT actuel est le dernier mot de la ligne originale.
-            # Cela suppose que la tokenization de stable-ts correspond à .split()
-            # ce qui n'est pas toujours vrai, mais c'est un point de départ.
-            # Une meilleure approche nécessiterait un alignement plus sophistiqué
-            # entre les mots du SRT et les mots des lignes originales.
-
-            # Pour l'instant, on va se baser sur le fait que chaque ligne du SRT est un mot.
-            # On essaie de "remplir" la ligne originale.
-            if current_original_line.endswith(srt_word_text): # Fin de ligne probable
-                lrc_lines.append("".join(current_lrc_line_parts))
-                current_lrc_line_parts = []
-                first_word_timestamp_in_line = -1.0
-                current_original_line = next(original_line_iter, None)
-            else:
-                # Ajouter un espace si ce n'est pas le premier mot après le timestamp de ligne
-                if len(current_lrc_line_parts) > 1 and current_lrc_line_parts[-1] != " ":
-                     # L'espace est implicite entre <ts>mot et <ts>mot suivant.
-                     pass
-
-
-        # S'il reste des parties pour une ligne non terminée
-        if current_lrc_line_parts:
-            lrc_lines.append("".join(current_lrc_line_parts))
-
-        # Correction pour les lignes vides du fichier de paroles original
-        # Ceci est une simplification; une correspondance plus robuste serait nécessaire.
-        # Pour l'instant, on s'assure de ne pas perdre le "rythme" des lignes vides.
-        final_lrc_lines_with_blanks = []
-        lrc_iter = iter(lrc_lines)
-        for orig_line in self.raw_lyrics_lines:
-            if not orig_line.strip():
-                final_lrc_lines_with_blanks.append("")
-            else:
-                try:
-                    final_lrc_lines_with_blanks.append(next(lrc_iter))
-                except StopIteration:
-                    # Plus de contenu LRC généré, mais des lignes originales non vides restantes.
-                    # On pourrait les ajouter sans timestamps, ou les ignorer.
-                    print(f"Avertissement: Ligne originale '{orig_line}' non couverte par la sortie SRT->LRC.")
-                    pass # On les ignore pour l'instant pour éviter des erreurs de format.
-
-        self.synced_lyrics = final_lrc_lines_with_blanks
-        if not self.synced_lyrics:
-            print("⚠️ Aucune ligne LRC n'a été générée à partir du contenu SRT.")
-        return self.synced_lyrics
-
-    def _save_lrc_from_srt_result(self, output_path_lrc):
-        """
-        Orchestre la génération de SRT par stable-ts, sa conversion en LRC,
-        et la sauvegarde du fichier .lrc.
-        """
-        if not self.raw_alignment_result:
-            print("❌ Aucun résultat d'alignement stable-ts à traiter pour générer un LRC via SRT.")
-            return False
-
-        # 1. Obtenir le contenu SRT en mémoire
-        srt_content_string = None
-        try:
-            # Demander à to_srt_vtt de retourner une chaîne en passant filepath=None
-            srt_content_string = self.raw_alignment_result.to_srt_vtt(filepath=None, word_level=True)
-        except Exception as e:
-            print(f"❌ Erreur lors de la génération du contenu SRT en mémoire : {e}")
-            return False
-
-        if not srt_content_string or not srt_content_string.strip():
-            print("❌ Contenu SRT généré par stable-ts est vide ou None.")
-            return False
-
-        # 2. Convertir le contenu SRT en données LRC
-        lrc_data = self._convert_srt_content_to_lrc_data(srt_content_string)
-
-        # 3. Sauvegarder les données LRC
-        if lrc_data: # Si la conversion a produit quelque chose
-            # _save_lrc_file utilise self.synced_lyrics qui a été mis à jour
-            # par _convert_srt_content_to_lrc_data
-            return self._save_lrc_file(output_path_override=output_path_lrc)
-        else:
-            print("❌ Conversion du SRT en LRC a échoué ou n'a rien produit.")
-            return False
-
+    # Les méthodes _convert_stable_ts_result_to_lrc, _parse_srt_time,
+    # _convert_srt_content_to_lrc_data, et _save_lrc_from_srt_result sont supprimées.
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Synchronise un fichier de paroles (.txt) avec un fichier audio (.mp3) pour créer un fichier .lrc ou .srt.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description="Synchronise un fichier de paroles (.txt) avec un fichier audio (.mp3).\n"
+                    "Mode manuel ('line') produit un .lrc.\n"
+                    "Mode automatique ('auto_stablets') produit un .srt.",
+        formatter_class=argparse.RawTextHelpFormatter # Pour mieux contrôler le help multiligne
     )
     parser.add_argument("mp3_path", help="Chemin vers le fichier .mp3")
     parser.add_argument("lyrics_path", help="Chemin vers le fichier .txt des paroles non synchronisées")
-    parser.add_argument("-o", "--output", help="Chemin vers le fichier de sortie (optionnel, défaut: <nom_mp3>.<format>)")
+    parser.add_argument("-o", "--output", help="Chemin vers le fichier de sortie (optionnel, défaut: <nom_mp3>.[lrc|srt])")
+
+    # L'option --output_format est supprimée. Le format est déterminé par le mode.
 
     parser.add_argument(
-        "--output_format",
-        choices=["lrc", "srt"],
-        default="srt",
-        help="Format du fichier de sortie pour la synchronisation automatique (défaut: srt)."
-    )
-    parser.add_argument(
         "--mode",
-        choices=["line", "word", "auto_stablets"],
+        choices=["line", "auto_stablets"], # "word" (manuel mot/mot) n'est pas implémenté
         default="line",
         help=("Mode de synchronisation:\n"
               "  'line': Manuel, ligne par ligne.\n"

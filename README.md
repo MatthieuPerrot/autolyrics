@@ -18,15 +18,23 @@ Ce projet contient des scripts pour récupérer et synchroniser des paroles de c
         *   Commande : `python script/sync_lyrics.py audio.mp3 paroles.txt --mode line`
     *   **Mode automatique avec `stable-ts` (basé sur Whisper) :**
         *   Utilise le modèle de reconnaissance vocale Whisper via `stable-ts` pour aligner automatiquement les paroles (fournies dans le fichier `.txt`) avec l'audio.
-        *   Génère des timestamps au niveau du mot, produisant un fichier LRC Enhanced.
-        *   **Dépendances importantes :** `stable-ts`, `torch`, `torchaudio`, `openai-whisper`. PyTorch et les modèles Whisper peuvent être volumineux. L'exécution se fait sur CPU par défaut dans le script, ce qui peut être lent pour les gros modèles ou les longues chansons.
-        *   Les modèles Whisper sont téléchargés automatiquement par la bibliothèque lors de la première utilisation d'un modèle spécifique.
-        *   Format de sortie par défaut pour ce mode : `.srt`. Peut être changé en `.lrc` avec l'option `--output_format lrc`.
-        *   La conversion SRT vers LRC est expérimentale et peut nécessiter des ajustements.
-        *   Commande : `python script/sync_lyrics.py audio.mp3 paroles.txt --mode auto_stablets --st_model base --st_lang ja --output_format srt`
-            *   `--st_model` : Choix du modèle Whisper (ex: `tiny`, `base`, `small`, `medium`). Les plus petits sont plus rapides mais moins précis.
-            *   `--st_lang` : Code langue pour Whisper (ex: `ja` pour japonais, `en` pour anglais).
-            *   `--output_format` : `srt` (défaut) ou `lrc`. Spécifie le format du fichier de sortie synchronisé.
+        *   Utilise le modèle de reconnaissance vocale Whisper via `stable-ts` pour aligner automatiquement les paroles (fournies dans le fichier `.txt`) avec l'audio.
+        *   Génère un fichier `.srt` détaillé où chaque entrée correspond à un segment (mot/syllabe) mis en évidence, avec le texte complet des paroles répété dans chaque entrée et la partie active colorée (formatage dépendant de `stable-ts`).
+        *   **Dépendances importantes :** `stable-ts`, `torch`, `torchaudio`, `openai-whisper`. PyTorch et les modèles Whisper peuvent être volumineux. L'exécution se fait sur CPU par défaut dans le script.
+        *   Les modèles Whisper sont téléchargés automatiquement lors de la première utilisation.
+        *   Commande : `python script/sync_lyrics.py audio.mp3 paroles.txt --mode auto_stablets --st_model base --st_lang ja`
+            *   `--st_model` : Choix du modèle Whisper (ex: `tiny`, `base`, `small`).
+            *   `--st_lang` : Code langue pour Whisper (ex: `ja`, `en`).
+            *   La sortie sera un fichier `.srt` (ex: `audio.srt`).
+
+3.  **Post-traitement de fichiers SRT (`script/postprocess_srt.py`)**
+    *   Permet de transformer le fichier SRT détaillé généré par `sync_lyrics.py --mode auto_stablets` en différents formats d'affichage.
+    *   Prend en entrée le `.srt` détaillé et le fichier `.txt` des paroles originales (pour la structure des lignes).
+    *   Commande : `python script/postprocess_srt.py input_detailed.srt original_lyrics.txt output_processed.srt --display_mode <mode>`
+    *   **Modes d'affichage (`--display_mode`) :**
+        *   `word` (défaut) : Chaque entrée SRT dans le fichier de sortie contient uniquement le mot/segment qui était en surbrillance dans le fichier d'entrée.
+        *   `line` : Chaque entrée SRT affiche la ligne de paroles originale complète où se trouve le mot/segment en surbrillance, avec ce dernier conservant sa surbrillance. (Implémentation actuelle de ce mode est simplifiée).
+        *   `line_plus_next` : Comme `line`, mais affiche aussi la ligne de paroles originale suivante. (Implémentation actuelle de ce mode est simplifiée).
 
 ## Structure des documents d'analyse (dans `docs/`)
 *   `01_context_fonctionnel_et_technique.md`: Contexte du projet.
