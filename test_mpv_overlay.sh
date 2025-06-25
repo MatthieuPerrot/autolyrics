@@ -27,6 +27,8 @@ mpv \
     --no-video \
     --force-window=yes \
     --audio-display=no \
+    --vo=gpu \
+    --background="#00000000" \
     --sub-file="$SRT_FILE" \
     --sub-font-size=38 \
     --sub-color="#FFFFFF" \
