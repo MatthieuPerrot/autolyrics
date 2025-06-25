@@ -32,9 +32,9 @@ Ce projet contient des scripts pour récupérer et synchroniser des paroles de c
     *   Prend en entrée le `.srt` détaillé et le fichier `.txt` des paroles originales (pour la structure des lignes).
     *   Commande : `python script/postprocess_srt.py input_detailed.srt original_lyrics.txt output_processed.srt --display_mode <mode>`
     *   **Modes d'affichage (`--display_mode`) :**
-        *   `word` (défaut) : Chaque entrée SRT dans le fichier de sortie contient uniquement le mot/segment qui était en surbrillance dans le fichier d'entrée.
-        *   `line` : Chaque entrée SRT affiche la ligne de paroles originale complète où se trouve le mot/segment en surbrillance, avec ce dernier conservant sa surbrillance. (Implémentation actuelle de ce mode est simplifiée).
-        *   `line_plus_next` : Comme `line`, mais affiche aussi la ligne de paroles originale suivante. (Implémentation actuelle de ce mode est simplifiée).
+        *   `word` (défaut) : Chaque entrée SRT dans le fichier de sortie contient uniquement le mot/segment qui était en surbrillance dans le fichier d'entrée. Ce mode est fonctionnel.
+        *   `line` : **(En développement)** Vise à afficher la ligne de paroles originale complète où se trouve le mot/segment en surbrillance, avec ce dernier conservant sa surbrillance. L'implémentation actuelle est préliminaire.
+        *   `line_plus_next` : **(En développement)** Vise à faire comme `line`, mais affiche aussi la ligne de paroles originale suivante. L'implémentation actuelle est préliminaire.
 
 ## Structure des documents d'analyse (dans `docs/`)
 *   `01_context_fonctionnel_et_technique.md`: Contexte du projet.
