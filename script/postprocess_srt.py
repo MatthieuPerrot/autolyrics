@@ -118,7 +118,6 @@ def postprocess_srt(input_srt_path, original_lyrics_path, output_srt_path, displ
                 current_global_char_pos += 1
 
         for block in srt_blocks:
-
             match_highlight = HIGHLIGHT_PATTERN.match(block["text_with_highlight"])
             if not match_highlight:
                 continue
@@ -181,8 +180,8 @@ def postprocess_srt(input_srt_path, original_lyrics_path, output_srt_path, displ
                     # Pour la ligne suivante, on la prend telle quelle, sans surbrillance de style 'line_all'
                     # sauf si on change cette logique. Pour 'none', elle sera propre.
                     next_line_text = original_lines[line_idx + 1].strip()
-                    if highlight_style in ["line_all", "preserve"]: # Surligner aussi la ligne suivante
-                         final_text_for_block += f"\n<font color=\"#aaaaaa\">{next_line_text}</font>"
+                    if highlight_style == "line_all": # Surligner aussi la ligne suivante
+                         final_text_for_block += f"\n<font color=\"#00ff00\">{next_line_text}</font>"
                     elif highlight_style == "none":
                          final_text_for_block += "\n" + next_line_text # Déjà propre
                     # Pour 'preserve', la ligne suivante est ajoutée en gris (si elle n'est pas déjà gérée par line_all)
