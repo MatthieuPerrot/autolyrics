@@ -184,8 +184,8 @@ def postprocess_srt(input_srt_path, original_lyrics_path, output_srt_path, displ
                          final_text_for_block += f"\n<font color=\"#00ff00\">{next_line_text}</font>"
                     elif highlight_style == "none":
                          final_text_for_block += "\n" + next_line_text # Déjà propre
-                    # Les commentaires précédents sur 'preserve' ont été enlevés car la logique
-                    # if highlight_style in [\"line_all\", \"preserve\"] gère cela.
+                    # Pour 'preserve', la ligne suivante est ajoutée en gris (si elle n'est pas déjà gérée par line_all)
+                    # La logique actuelle avec `highlight_style in ["line_all", "preserve"]` est correcte.
 
             output_srt_content_parts.append(f"{new_block_index}\n"
                                          f"{block['start_time']} --> {block['end_time']}\n"
