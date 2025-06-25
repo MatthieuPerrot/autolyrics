@@ -1,0 +1,11 @@
+1
+00:00:01,000 --> 00:00:03,000
+Ceci est la première ligne de test.
+
+2
+00:00:03,500 --> 00:00:06,000
+<font color="#FFFF00">Deuxième ligne, en jaune !</font>
+
+3
+00:00:07,000 --> 00:00:10,000
+Et voici la <font color="#00FF00">troisième</font> et dernière ligne.
