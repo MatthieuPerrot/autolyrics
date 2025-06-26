@@ -1,6 +1,12 @@
 #!/bin/bash
 
-# Script pour tester l'affichage overlay avec mpv
+# Script pour tester l'affichage overlay avec mpv sous Wayland
+
+# MODIFIEZ CETTE LIGNE POUR TESTER DIFFERENTS VO:
+# Options possibles: "gpu", "gpu-next", "wlshm"
+VIDEO_OUTPUT="gpu"
+# VIDEO_OUTPUT="gpu-next"
+# VIDEO_OUTPUT="wlshm"
 
 AUDIO_FILE="test_audio.mp3"
 SRT_FILE="test_lyrics.srt"
@@ -17,6 +23,8 @@ if [ ! -f "$SRT_FILE" ]; then
     exit 1
 fi
 
+echo "Lancement de mpv avec --vo=$VIDEO_OUTPUT ..."
+
 # Lancer mpv avec les options pour l'overlay
 mpv \
     --title="$WINDOW_TITLE" \
@@ -27,7 +35,9 @@ mpv \
     --no-video \
     --force-window=yes \
     --audio-display=no \
-    --vo=gpu \
+    --vo="$VIDEO_OUTPUT" \
+    --gpu-context=wayland \
+    --wayland-app-id="org.mpv_lyrics_overlay.Mpv" \
     --background="#00000000" \
     --sub-file="$SRT_FILE" \
     --sub-font-size=38 \
