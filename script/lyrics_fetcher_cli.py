@@ -9,8 +9,9 @@ from lyrics_fetcher.fallback import get_romaji_lyrics
 def extract_metadata(mp3_path):
     audio = EasyID3(mp3_path)
     title = audio.get("title", [None])[0]
-    artist = audio.get("artist", [None])[0]
-    return title, artist
+    artists = audio.get("artist", [None])[0]
+    if artists is not None: artists = artists.split('/')
+    return title, artists
 
 def main():
     parser = argparse.ArgumentParser(description="🔎 Recherche automatique de paroles en romaji et synchronisation optionnelle.")
@@ -27,13 +28,13 @@ def main():
     args = parser.parse_args()
 
     mp3_file_path = args.mp3_path
-    title, artist = extract_metadata(mp3_file_path)
-    if not title or not artist:
+    title, artists = extract_metadata(mp3_file_path)
+    if not title or not artists or len(artists) == 0:
         print("❌ Impossible d'extraire le titre ou l'artiste depuis le fichier mp3.")
         return
 
-    print(f"🎵 Lecture des métadonnées : {title} - {artist}")
-    lyrics_text = get_romaji_lyrics(title, artist)
+    print(f"🎵 Lecture des métadonnées : {title} - {artists}")
+    lyrics_text = get_romaji_lyrics(title, artists)
 
     if not lyrics_text or lyrics_text.strip() == "LYRICS NOT FOUND":
         print("❌ Paroles non trouvées. Impossible de continuer avec la synchronisation.")

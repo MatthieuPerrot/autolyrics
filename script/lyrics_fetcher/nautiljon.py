@@ -10,8 +10,9 @@ from googlesearch import search
 from bs4 import BeautifulSoup
 
 
-def find_lyrics_nautiljon(title: str, artist: str) -> str:
-    query1 = f'site:https://www.nautiljon.com/paroles \"{artist}\" \"{title}\"'
+def find_lyrics_nautiljon(title: str, artists: list) -> str:
+    artists_str = ' '.join([f'"{artist}"' for artist in artists])
+    query1 = f'site:https://www.nautiljon.com/paroles {artists_str} \"{title}\"'
     query2 = f'site:https://www.nautiljon.com/paroles \"{title}\"'
     
     for query in [query1, query2]:

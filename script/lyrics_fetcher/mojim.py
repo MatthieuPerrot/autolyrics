@@ -2,8 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 
-def find_lyrics_mojim(title: str, artist: str) -> str:
-    query = f'site:mojim.com "{artist}" "{title}"'
+def find_lyrics_mojim(title: str, artists: list) -> str:
+    artists_str = ' '.join([f'"{artist}"' for artist in artists])
+    query = f'site:mojim.com {artists_str} "{title}"'
     print(f"🔍 Recherche Mojim : {query}")
 
     for url in search(query, num_results=5):

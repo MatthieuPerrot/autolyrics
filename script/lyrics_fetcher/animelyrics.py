@@ -2,8 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 
-def find_lyrics_animelyrics(title: str, artist: str) -> str:
-    query = f'site:animelyrics.com "romaji lyrics" "{artist}" "{title}"'
+def find_lyrics_animelyrics(title: str, artists: list) -> str:
+    artists_str = ' '.join([f'"{artist}"' for artist in artists])
+    query = f'site:animelyrics.com "romaji lyrics" {artists_str} "{title}"'
     print(f"🔍 Recherche animelyrics : {query}")
 
     for url in search(query, num_results=5):

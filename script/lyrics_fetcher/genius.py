@@ -2,8 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 
-def find_lyrics_genius(title: str, artist: str) -> str:
-    query = f'site:genius.com "romanized" "{artist}" "{title}"'
+def find_lyrics_genius(title: str, artists: list) -> str:
+    artists_str = ' '.join([f'"{artist}"' for artist in artists])
+    query = f'site:genius.com "romanized" {artists_str} "{title}"'
     print(f"🔍 [Fallback] Recherche Genius : {query}")
 
     for url in search(query, num_results=5):

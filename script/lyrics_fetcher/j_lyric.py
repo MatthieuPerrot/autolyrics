@@ -2,8 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 
-def find_lyrics_j_lyric(title: str, artist: str) -> str:
-    query = f'site:j-lyric.net "{artist}" "{title}"'
+def find_lyrics_j_lyric(title: str, artists: list) -> str:
+    artists_str = ' '.join([f'"{artist}"' for artist in artists])
+    query = f'site:j-lyric.net {artists_str} "{title}"'
     print(f"🔍 Recherche J-Lyric : {query}")
 
     for url in search(query, num_results=5):
