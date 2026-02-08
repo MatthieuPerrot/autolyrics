@@ -7,13 +7,14 @@ non-romaji Latin languages (French, Spanish, etc.).
 """
 
 from lyrics_fetcher.language_detector import (
+    detect_lyrics_language,
     is_likely_english,
     is_likely_romaji,
     contains_japanese_characters,
     _is_likely_non_romaji_latin,
 )
 
-from tests.helpers.assertions import assert_true, assert_false
+from tests.helpers.assertions import assert_true, assert_false, assert_equal
 
 
 # ---------------------------------------------------------------------------
@@ -315,3 +316,101 @@ class TestContainsJapaneseCharacters:
 
     def test_english_only(self):
         assert_false(contains_japanese_characters("hello world"))
+
+
+# ---------------------------------------------------------------------------
+# detect_lyrics_language
+# ---------------------------------------------------------------------------
+
+class TestDetectLyricsLanguage:
+
+    def test_japanese_text(self):
+        text = (
+            "風が吹いている街の中で\n"
+            "君の声が聞こえるよ\n"
+            "あの日の約束はまだ\n"
+            "僕の胸にあるから\n"
+        )
+        assert_equal(
+            detect_lyrics_language(text), "japanese",
+            "text with kanji/kana should be detected as japanese",
+        )
+
+    def test_english_text(self):
+        text = (
+            "I feel your love reflection\n"
+            "coming through the atmosphere\n"
+            "into my heart forever"
+        )
+        assert_equal(
+            detect_lyrics_language(text), "english",
+            "pure English text should be detected as english",
+        )
+
+    def test_romaji_text(self):
+        text = (
+            "kimi ga sora datta\n"
+            "sono kokoro ni fureta\n"
+            "toki wo koete haruka"
+        )
+        assert_equal(
+            detect_lyrics_language(text), "romaji",
+            "pure romaji text should be detected as romaji",
+        )
+
+    def test_french_text(self):
+        text = (
+            "Les paroles de cette chanson sont très belles\n"
+            "Elle parle d'amour et de solitude\n"
+            "Dans une mélodie douce et triste"
+        )
+        assert_equal(
+            detect_lyrics_language(text), "non_romaji_latin",
+            "French text should be detected as non_romaji_latin",
+        )
+
+    def test_spanish_text(self):
+        text = (
+            "Las palabras de esta canción son muy bonitas\n"
+            "Habla de amor y de soledad\n"
+            "En una melodía dulce y triste"
+        )
+        assert_equal(
+            detect_lyrics_language(text), "non_romaji_latin",
+            "Spanish text should be detected as non_romaji_latin",
+        )
+
+    def test_mixed_english_romaji_is_romaji(self):
+        """Mixed English/romaji text (common in J-pop) should be classified as romaji."""
+        text = (
+            "I feel your love reflection\n"
+            "kizu tsuite mo kizu tsukerarete mo\n"
+            "donna koto ga atte mo\n"
+            "I can still believe our love\n"
+            "kimi no namida wo nuguitai"
+        )
+        assert_equal(
+            detect_lyrics_language(text), "romaji",
+            "mixed English/romaji should be classified as romaji",
+        )
+
+    def test_very_short_text_is_unknown(self):
+        assert_equal(
+            detect_lyrics_language("hi"), "unknown",
+            "very short text (< 3 words) should be unknown",
+        )
+
+    def test_japanese_priority_over_english(self):
+        """Japanese characters should be detected even if English words are present."""
+        text = "I love you 君の声が聞こえるよ"
+        assert_equal(
+            detect_lyrics_language(text), "japanese",
+            "japanese characters should take priority over english words",
+        )
+
+    def test_katakana_text(self):
+        text = "アイウエオ カキクケコ サシスセソ"
+        assert_equal(
+            detect_lyrics_language(text), "japanese",
+            "katakana-only text should be detected as japanese",
+        )

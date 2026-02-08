@@ -33,6 +33,7 @@ class FetchEvent:
     lyrics_length: int
     error: Optional[str] = None
     converted: bool = False
+    detected_language: Optional[str] = None
 
 
 def _fetch_status(ev: FetchEvent) -> str:
@@ -41,6 +42,8 @@ def _fetch_status(ev: FetchEvent) -> str:
         return "fetch_fail"
     if not ev.parse_ok:
         return "parse_fail"
+    if ev.detected_language and ev.detected_language != "romaji":
+        return f"rejected ({ev.detected_language})"
     if ev.converted:
         return "converted"
     return "parse_ok"
@@ -121,14 +124,28 @@ class RunLog:
                 )
             lines.append("")
 
-        # Result line
-        success = [e for e in fetch_evts if e.fetch_ok and e.parse_ok]
+        # Result line — exclude rejected (wrong-language) events
+        def _is_accepted(e):
+            if not e.fetch_ok or not e.parse_ok:
+                return False
+            if e.detected_language and e.detected_language != "romaji":
+                return False
+            return True
+
+        success = [e for e in fetch_evts if _is_accepted(e)]
         if success:
             best = success[0]
             suffix = ", converted" if best.converted else ""
             result_str = f"{best.source_name} ({best.lyrics_length} chars{suffix})"
         else:
-            result_str = "none"
+            best_lang = next(
+                (e.detected_language for e in fetch_evts if e.detected_language),
+                None,
+            )
+            if best_lang:
+                result_str = f"none (best: {best_lang})"
+            else:
+                result_str = "none"
         lines.append(f"Total: {self.total_duration:.1f}s | Result: {result_str}")
 
         return "\n".join(lines)

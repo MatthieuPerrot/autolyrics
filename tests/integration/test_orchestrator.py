@@ -1472,3 +1472,132 @@ class TestUrlLanguageFiltering:
             "both clean URLs should be attempted",
         )
         assert_contains_text(result, "lyrics_from_source")
+
+
+# ---------------------------------------------------------------------------
+# Language diagnostics in pipeline
+# ---------------------------------------------------------------------------
+
+_ENGLISH_LYRICS = (
+    "The wind is blowing through the city\n"
+    "I can hear your voice calling\n"
+    "The promise from that day still\n"
+    "Lives on inside my heart\n"
+    "I will never forget you\n"
+)
+
+_FRENCH_LYRICS = (
+    "Les paroles de cette chanson sont très belles\n"
+    "Elle parle d'amour et de solitude\n"
+    "Dans une mélodie douce et triste\n"
+    "Qui résonne dans le coeur\n"
+)
+
+
+class TestLanguageDiagnostics:
+    """Pipeline records detected_language on FetchEvents for wrong-language results."""
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.fallback._finalize_run")
+    def test_english_lyrics_recorded_in_run_log(
+        self, mock_finalize, mock_fetch, mock_registry
+    ):
+        """Source returns English lyrics — FetchEvent should record detected_language='english'."""
+        sources = [
+            LyricsSource(
+                name="english_source",
+                search=lambda t, a: ["http://english.example.com"],
+                parse=lambda h: _ENGLISH_LYRICS,
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=3,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.return_value = (_MOCK_HTML, 200)
+
+        get_romaji_lyrics("TITLE", ["ARTIST"])
+
+        run_log = mock_finalize.call_args[0][0]
+        fetch_evts = run_log.fetch_events
+        assert_greater_equal(len(fetch_evts), 1)
+        detected_langs = [e.detected_language for e in fetch_evts if e.detected_language]
+        assert_in("english", detected_langs)
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.fallback._finalize_run")
+    def test_french_lyrics_recorded_as_non_romaji_latin(
+        self, mock_finalize, mock_fetch, mock_registry
+    ):
+        """Source returns French lyrics — should be recorded as non_romaji_latin."""
+        sources = [
+            LyricsSource(
+                name="french_source",
+                search=lambda t, a: ["http://french.example.com"],
+                parse=lambda h: _FRENCH_LYRICS,
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=3,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.return_value = (_MOCK_HTML, 200)
+
+        get_romaji_lyrics("TITLE", ["ARTIST"])
+
+        run_log = mock_finalize.call_args[0][0]
+        fetch_evts = run_log.fetch_events
+        detected_langs = [e.detected_language for e in fetch_evts if e.detected_language]
+        assert_in("non_romaji_latin", detected_langs)
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.fallback._finalize_run")
+    def test_romaji_lyrics_recorded_as_romaji(
+        self, mock_finalize, mock_fetch, mock_registry
+    ):
+        """Source returns romaji lyrics — should be recorded as romaji."""
+        sources = [
+            LyricsSource(
+                name="romaji_source",
+                search=lambda t, a: ["http://romaji.example.com"],
+                parse=lambda h: _romaji_lyrics("romaji_source"),
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=5,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.return_value = (_MOCK_HTML, 200)
+
+        get_romaji_lyrics("TITLE", ["ARTIST"])
+
+        run_log = mock_finalize.call_args[0][0]
+        fetch_evts = run_log.fetch_events
+        detected_langs = [e.detected_language for e in fetch_evts if e.detected_language]
+        assert_in("romaji", detected_langs)
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.fallback._finalize_run")
+    def test_summary_shows_rejected_language_in_fetch_section(
+        self, mock_finalize, mock_fetch, mock_registry
+    ):
+        """When English lyrics are fetched, summary shows 'rejected (english)' and result none."""
+        sources = [
+            LyricsSource(
+                name="english_source",
+                search=lambda t, a: ["http://english.example.com"],
+                parse=lambda h: _ENGLISH_LYRICS,
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=3,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.return_value = (_MOCK_HTML, 200)
+
+        get_romaji_lyrics("TITLE", ["ARTIST"])
+
+        run_log = mock_finalize.call_args[0][0]
+        summary = run_log.format_summary()
+        assert_contains_text(summary, "rejected (english)")
+        assert_contains_text(summary, "none (best: english)")

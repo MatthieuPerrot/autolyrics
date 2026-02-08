@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests as requests_lib
 from bs4 import BeautifulSoup
 
+from .language_detector import detect_lyrics_language
 from .quality import is_acceptable
 from .run_log import RunLog, SearchEvent, FetchEvent
 from .source_registry import Fetcher, build_registry
@@ -180,6 +181,7 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
         lyrics = None
         converted = False
         lyrics_length = 0
+        detected_language = None
 
         if html:
             if artists and not _html_mentions_artist(html, artists):
@@ -210,6 +212,8 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
                     converted = lyrics is not None
             parse_ok = lyrics is not None
             lyrics_length = len(lyrics) if lyrics else 0
+            if lyrics is not None:
+                detected_language = detect_lyrics_language(lyrics)
             print(
                 f"  ... {source.name} | {fetcher_type.value} | {duration:.1f}s | "
                 f"{'ok' if parse_ok else 'parse failed'} | {url}"
@@ -232,6 +236,7 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
                 parse_ok=parse_ok,
                 lyrics_length=lyrics_length,
                 converted=converted,
+                detected_language=detected_language,
             ))
 
         if lyrics:

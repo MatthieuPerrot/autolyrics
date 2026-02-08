@@ -6,12 +6,21 @@ import subprocess # Pour appeler sync_lyrics.py
 from mutagen.easyid3 import EasyID3
 from lyrics_fetcher.fallback import get_romaji_lyrics
 
+_JAPANESE_CODES = {"ja", "jpn", "japanese"}
+
+
+def is_japanese_language(lang_code: str) -> bool:
+    """Return True if the language code refers to Japanese."""
+    return lang_code.strip().lower() in _JAPANESE_CODES
+
+
 def extract_metadata(mp3_path):
     audio = EasyID3(mp3_path)
     title = audio.get("title", [None])[0]
     artists = audio.get("artist", [None])[0]
     if artists is not None: artists = artists.split('/')
-    return title, artists
+    language = audio.get("language", [None])[0]
+    return title, artists, language
 
 def main():
     parser = argparse.ArgumentParser(description="🔎 Recherche automatique de paroles en romaji et synchronisation optionnelle.")
@@ -28,12 +37,14 @@ def main():
     args = parser.parse_args()
 
     mp3_file_path = args.mp3_path
-    title, artists = extract_metadata(mp3_file_path)
+    title, artists, language = extract_metadata(mp3_file_path)
     if not title or not artists or len(artists) == 0:
         print("❌ Impossible d'extraire le titre ou l'artiste depuis le fichier mp3.")
         return
 
     print(f"🎵 Lecture des métadonnées : {title} - {artists}")
+    if language and not is_japanese_language(language):
+        print(f"⚠️ MP3 language tag: '{language}' (not Japanese). Romaji search may not find results.")
     lyrics_text = get_romaji_lyrics(title, artists)
 
     if not lyrics_text or lyrics_text.strip() == "LYRICS NOT FOUND":

@@ -386,3 +386,156 @@ class TestRunLogToJsonl:
         assert_len(lines, 1)
         header = json.loads(lines[0])
         assert_equal(header["type"], "run_header")
+
+    def test_detected_language_serialized_in_jsonl(self):
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="nautiljon", fetcher_type="requests", url="http://x",
+            phase=1, duration=0.5, http_status=200,
+            fetch_ok=True, parse_ok=False, lyrics_length=0,
+            detected_language="english",
+        ))
+        jsonl = log.to_jsonl()
+        lines = jsonl.strip().split("\n")
+        fetch_lines = [json.loads(l) for l in lines if json.loads(l)["type"] == "fetch"]
+        assert_len(fetch_lines, 1)
+        assert_equal(fetch_lines[0]["detected_language"], "english")
+
+
+# ---------------------------------------------------------------------------
+# FetchEvent.detected_language
+# ---------------------------------------------------------------------------
+
+class TestFetchEventDetectedLanguage:
+
+    def test_defaults_to_none(self):
+        ev = FetchEvent(
+            source_name="src", fetcher_type="requests", url="http://x",
+            phase=1, duration=0.1, http_status=200,
+            fetch_ok=True, parse_ok=False, lyrics_length=0,
+        )
+        assert_equal(ev.detected_language, None)
+
+    def test_can_be_set(self):
+        ev = FetchEvent(
+            source_name="src", fetcher_type="requests", url="http://x",
+            phase=1, duration=0.1, http_status=200,
+            fetch_ok=True, parse_ok=False, lyrics_length=0,
+            detected_language="english",
+        )
+        assert_equal(ev.detected_language, "english")
+
+
+# ---------------------------------------------------------------------------
+# _fetch_status with detected_language
+# ---------------------------------------------------------------------------
+
+class TestFetchStatusWithLanguage:
+
+    def test_rejected_english_lyrics(self):
+        """Lyrics parsed but wrong language → status should be 'rejected (english)'."""
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="genius", fetcher_type="requests",
+            url="http://genius.example.com", phase=1,
+            duration=0.5, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=200, detected_language="english",
+        ))
+        summary = log.format_summary()
+        assert_contains_text(
+            summary, "rejected (english)",
+            "wrong-language lyrics should show 'rejected (language)'",
+        )
+
+    def test_rejected_non_romaji_latin(self):
+        """French lyrics parsed → status should be 'rejected (non_romaji_latin)'."""
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="nautiljon", fetcher_type="requests",
+            url="http://nautiljon.example.com", phase=1,
+            duration=0.3, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=300, detected_language="non_romaji_latin",
+        ))
+        summary = log.format_summary()
+        assert_contains_text(summary, "rejected (non_romaji_latin)")
+
+    def test_rejected_japanese_lyrics(self):
+        """Japanese lyrics parsed → status should be 'rejected (japanese)'."""
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="j_lyric", fetcher_type="requests",
+            url="http://j-lyric.example.com", phase=1,
+            duration=0.5, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=400, detected_language="japanese",
+        ))
+        summary = log.format_summary()
+        assert_contains_text(summary, "rejected (japanese)")
+
+    def test_romaji_not_rejected(self):
+        """Romaji lyrics should show 'parse_ok', not 'rejected'."""
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="animelyrics", fetcher_type="requests",
+            url="http://animelyrics.example.com", phase=1,
+            duration=0.5, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=300, detected_language="romaji",
+        ))
+        summary = log.format_summary()
+        assert_not_in("rejected", summary)
+        assert_contains_text(summary, "parse_ok")
+
+    def test_parse_fail_without_language(self):
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="src", fetcher_type="requests",
+            url="http://x", phase=1,
+            duration=0.1, http_status=200, fetch_ok=True, parse_ok=False,
+            lyrics_length=0,
+        ))
+        summary = log.format_summary()
+        assert_contains_text(summary, "parse_fail")
+        assert_not_in("rejected", summary)
+
+
+# ---------------------------------------------------------------------------
+# format_summary: result line with best rejected language
+# ---------------------------------------------------------------------------
+
+class TestSummaryBestRejectedLanguage:
+
+    def test_no_result_shows_best_rejected_language(self):
+        """When only wrong-language lyrics found, result line shows best rejected."""
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="src", fetcher_type="requests",
+            url="http://x", phase=1,
+            duration=0.5, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=200, detected_language="english",
+        ))
+        summary = log.format_summary()
+        assert_contains_text(summary, "none (best: english)")
+
+    def test_no_result_without_language_shows_plain_none(self):
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="src", fetcher_type="requests",
+            url="http://x", phase=1,
+            duration=0.5, http_status=200, fetch_ok=False, parse_ok=False,
+            lyrics_length=0,
+        ))
+        summary = log.format_summary()
+        assert_contains_text(summary, "Result: none")
+        assert_not_in("best:", summary)
+
+    def test_rejected_event_not_counted_as_success(self):
+        """A rejected (wrong-language) event should not appear in Result line as success."""
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="genius", fetcher_type="requests",
+            url="http://genius.example.com", phase=1,
+            duration=0.5, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=200, detected_language="english",
+        ))
+        summary = log.format_summary()
+        assert_not_in("Result: genius", summary)
+        assert_contains_text(summary, "Result: none")

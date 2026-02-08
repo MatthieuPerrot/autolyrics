@@ -50,6 +50,23 @@ def _is_likely_non_romaji_latin(text: str) -> bool:
     return False
 
 
+def detect_lyrics_language(text: str) -> str:
+    """Classify the predominant language of lyrics text.
+
+    Returns one of: "japanese", "english", "non_romaji_latin", "romaji", "unknown".
+    """
+    if contains_japanese_characters(text):
+        return "japanese"
+    if is_likely_english(text):
+        return "english"
+    if _is_likely_non_romaji_latin(text):
+        return "non_romaji_latin"
+    words = re.findall(r'\b\w+\b', text.lower())
+    if len(words) < 3:
+        return "unknown"
+    return "romaji"
+
+
 def is_likely_english(text: str) -> bool:
     """
     Detect if text is likely English translation vs romaji.
