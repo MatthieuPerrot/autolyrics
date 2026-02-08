@@ -183,3 +183,57 @@ class TestEdgeCases:
             _html_mentions_artist("Lyrics by ZARD", ["ZARD"]),
             "artist at the very end of HTML should match",
         )
+
+
+class TestUnicodeNormalization:
+    """Unicode variants of punctuation must match their ASCII equivalents."""
+
+    def test_wave_dash_matches_hyphen(self):
+        assert_true(
+            _html_mentions_artist(
+                "<html>l'arc\u301Cen\u301Cciel</html>", ["L'Arc-en-Ciel"]
+            ),
+            "wave dash U+301C in HTML should match hyphen in artist name",
+        )
+
+    def test_curly_right_quote_matches_apostrophe(self):
+        assert_true(
+            _html_mentions_artist("<html>B\u2019z rocks</html>", ["B'z"]),
+            "right curly quote U+2019 should match straight apostrophe",
+        )
+
+    def test_curly_left_quote_matches_apostrophe(self):
+        assert_true(
+            _html_mentions_artist("<html>B\u2018z rocks</html>", ["B'z"]),
+            "left curly quote U+2018 should match straight apostrophe",
+        )
+
+    def test_fullwidth_ascii_matches_regular(self):
+        assert_true(
+            _html_mentions_artist(
+                "<html>\uff34\uff37\uff2f\uff0d\uff2d\uff29\uff38</html>",
+                ["TWO-MIX"],
+            ),
+            "fullwidth ASCII (NFKC) should match regular ASCII",
+        )
+
+    def test_em_dash_matches_hyphen(self):
+        assert_true(
+            _html_mentions_artist("<html>TWO\u2014MIX</html>", ["TWO-MIX"]),
+            "em dash U+2014 should match hyphen",
+        )
+
+    def test_en_dash_matches_hyphen(self):
+        assert_true(
+            _html_mentions_artist("<html>TWO\u2013MIX</html>", ["TWO-MIX"]),
+            "en dash U+2013 should match hyphen",
+        )
+
+    def test_mixed_unicode_variants(self):
+        assert_true(
+            _html_mentions_artist(
+                "<html>L\u2019Arc\u301Cen\u301CCiel</html>",
+                ["L'Arc-en-Ciel"],
+            ),
+            "mixed curly quote + wave dash should match straight quote + hyphen",
+        )

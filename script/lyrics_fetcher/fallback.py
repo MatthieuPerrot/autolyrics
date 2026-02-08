@@ -12,6 +12,7 @@ immediate early-exit for everything else via a shared threading.Event.
 import re
 import threading
 import time
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests as requests_lib
@@ -123,11 +124,28 @@ def _fetch_requests(url: str) -> tuple:
         return None, 0
 
 
+_MATCH_CHAR_MAP = str.maketrans({
+    '\u301C': '-',  # wave dash
+    '~': '-',       # tilde
+    '\u2018': "'",  # left single curly quote
+    '\u2019': "'",  # right single curly quote
+    '\u2014': '-',  # em dash
+    '\u2013': '-',  # en dash
+})
+
+
+def _normalize_for_matching(text: str) -> str:
+    """Normalize Unicode variants for artist name matching."""
+    text = unicodedata.normalize('NFKC', text)
+    text = text.translate(_MATCH_CHAR_MAP)
+    return text.lower()
+
+
 def _html_mentions_artist(html, artists):
     """Check if any artist name appears in the fetched HTML as a whole word."""
-    html_lower = html.lower()
+    html_lower = _normalize_for_matching(html)
     for artist in artists:
-        artist_lower = artist.lower()
+        artist_lower = _normalize_for_matching(artist)
         variants = {artist_lower}
         if "-" in artist_lower:
             variants.add(artist_lower.replace("-", " "))
