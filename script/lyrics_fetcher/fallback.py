@@ -231,6 +231,7 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
                 fetch_ok=fetch_ok,
                 parse_ok=parse_ok,
                 lyrics_length=lyrics_length,
+                converted=converted,
             ))
 
         if lyrics:

@@ -1,5 +1,12 @@
 """Search backends with automatic fallback"""
 
+try:
+    from ddgs import DDGS
+except ImportError:
+    from duckduckgo_search import DDGS
+
+from googlesearch import search as google_search
+
 
 class SearchBackend:
     """Base class for search backends"""
@@ -29,13 +36,7 @@ class DuckDuckGoBackend(SearchBackend):
     """DuckDuckGo search - free, no API key required"""
 
     def search(self, query: str, num_results: int = 5) -> list[str]:
-        try:
-            from ddgs import DDGS
-        except ImportError:
-            # Fallback to old package name
-            from duckduckgo_search import DDGS
-
-        with DDGS() as ddgs:
+        with DDGS(timeout=10) as ddgs:
             results = list(ddgs.text(query, max_results=num_results))
             return [r['href'] for r in results]
 
@@ -44,10 +45,8 @@ class GoogleScraperBackend(SearchBackend):
     """Google search via web scraping - free but can be rate limited"""
 
     def search(self, query: str, num_results: int = 5) -> list[str]:
-        from googlesearch import search as google_search
-
-        # googlesearch returns generator, convert to list
-        return list(google_search(query, num_results=num_results, lang='en'))
+        return list(google_search(query, num_results=num_results, lang='en',
+                                  timeout=10))
 
 
 class GoogleCSEBackend(SearchBackend):

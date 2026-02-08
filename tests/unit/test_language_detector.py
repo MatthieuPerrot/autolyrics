@@ -1,14 +1,16 @@
 """Unit tests for the language detector module.
 
-Tests cover the three main functions: is_likely_english, contains_japanese_characters,
-and is_likely_romaji. Focus on edge cases around mixed English/romaji text, which is
-common in J-pop songs.
+Tests cover the main functions: is_likely_english, contains_japanese_characters,
+is_likely_romaji, and _is_likely_non_romaji_latin. Focus on edge cases around
+mixed English/romaji text, which is common in J-pop songs, and rejection of
+non-romaji Latin languages (French, Spanish, etc.).
 """
 
 from lyrics_fetcher.language_detector import (
     is_likely_english,
     is_likely_romaji,
     contains_japanese_characters,
+    _is_likely_non_romaji_latin,
 )
 
 from tests.helpers.assertions import assert_true, assert_false
@@ -84,6 +86,20 @@ class TestIsLikelyEnglish:
             "pure English containing 'to' should still be detected as English",
         )
 
+    def test_text_with_japanese_vocabulary_not_english(self):
+        """Text with unambiguous Japanese vocabulary words (kokoro, namida, sekai)
+        should not be detected as English, even without particles.
+        """
+        text = (
+            "kokoro ga itai\n"
+            "namida ga tomaranai\n"
+            "sekai wa utsukushii"
+        )
+        assert_false(
+            is_likely_english(text),
+            "text with Japanese vocabulary should not be English",
+        )
+
     def test_english_with_te_ending_words(self):
         """English words ending in 'te' (white, write) should not be
         confused with Japanese verb endings.
@@ -156,6 +172,126 @@ class TestIsLikelyRomaji:
         assert_false(
             is_likely_romaji(text),
             "text with Japanese characters should be rejected",
+        )
+
+    def test_french_text_rejected(self):
+        """French text from nautiljon should not pass as romaji."""
+        text = (
+            "Les paroles de cette chanson sont très belles\n"
+            "Elle parle d'amour et de solitude\n"
+            "Dans une mélodie douce et triste"
+        )
+        assert_false(
+            is_likely_romaji(text),
+            "French text should be rejected as romaji",
+        )
+
+    def test_spanish_text_rejected(self):
+        """Spanish text should not pass as romaji."""
+        text = (
+            "Las palabras de esta canción son muy bonitas\n"
+            "Habla de amor y de soledad\n"
+            "En una melodía dulce y triste"
+        )
+        assert_false(
+            is_likely_romaji(text),
+            "Spanish text should be rejected as romaji",
+        )
+
+    def test_accented_text_rejected(self):
+        """Text with accented characters (not macrons) should be rejected."""
+        text = (
+            "résumé des paroles françaises\n"
+            "avec des accents très fréquents\n"
+            "et des mots accentués partout"
+        )
+        assert_false(
+            is_likely_romaji(text),
+            "text with French accents should be rejected",
+        )
+
+    def test_romaji_with_macrons_accepted(self):
+        """Romaji with macrons (ā, ū, ō) should still be accepted."""
+        text = (
+            "tōkyō no machi wa kirei da\n"
+            "kōen de asobō\n"
+            "gakkō ni ikimashō"
+        )
+        assert_true(
+            is_likely_romaji(text),
+            "romaji with macrons should be accepted",
+        )
+
+    def test_romaji_with_extra_indicators_accepted(self):
+        """Text with unambiguous Japanese words should be detected as romaji."""
+        text = (
+            "kokoro ga itai\n"
+            "namida ga tomaranai\n"
+            "sekai wa utsukushii"
+        )
+        assert_true(
+            is_likely_romaji(text),
+            "text with Japanese vocabulary should be accepted as romaji",
+        )
+
+
+# ---------------------------------------------------------------------------
+# _is_likely_non_romaji_latin
+# ---------------------------------------------------------------------------
+
+class TestIsLikelyNonRomajiLatin:
+
+    def test_french_text(self):
+        text = (
+            "Les paroles de cette chanson sont très belles\n"
+            "Elle parle dans une mélodie douce"
+        )
+        assert_true(
+            _is_likely_non_romaji_latin(text),
+            "French text should be detected as non-romaji Latin",
+        )
+
+    def test_spanish_text(self):
+        text = (
+            "Las palabras de esta canción\n"
+            "Habla de amor y soledad"
+        )
+        assert_true(
+            _is_likely_non_romaji_latin(text),
+            "Spanish text should be detected as non-romaji Latin",
+        )
+
+    def test_accented_text_above_threshold(self):
+        text = "résumé très fréquent déjà éléphant"
+        assert_true(
+            _is_likely_non_romaji_latin(text),
+            "text with many accented characters should be detected",
+        )
+
+    def test_romaji_not_detected(self):
+        text = (
+            "kimi ga sora datta\n"
+            "sono kokoro ni fureta\n"
+            "toki wo koete haruka"
+        )
+        assert_false(
+            _is_likely_non_romaji_latin(text),
+            "pure romaji should not be detected as non-romaji Latin",
+        )
+
+    def test_romaji_with_macrons_not_detected(self):
+        text = "tōkyō no machi wa kirei da"
+        assert_false(
+            _is_likely_non_romaji_latin(text),
+            "romaji with macrons should not be detected as non-romaji Latin",
+        )
+
+    def test_english_not_detected(self):
+        """English has no accented chars and no French/Spanish words."""
+        text = "I feel your love reflection coming through"
+        assert_false(
+            _is_likely_non_romaji_latin(text),
+            "English should not be detected as non-romaji Latin",
         )
 
 

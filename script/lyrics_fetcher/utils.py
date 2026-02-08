@@ -1,5 +1,8 @@
 # Placeholders pour l'instant. Futur : détection de langue, conversion romaji, logs, etc.
 
+import time
+
+
 def is_romaji(text: str) -> bool:
     return all(ord(c) < 128 for c in text)
 
@@ -13,24 +16,15 @@ def detect_script(text: str) -> str:
     return 'latin'
 
 
-def search(query: str, num_results: int = 5):
-    """
-    Search with automatic fallback across multiple backends.
-    Yields URLs one by one.
-
-    Backends are tried in order:
-    1. DuckDuckGo (most reliable, no API key)
-    2. Google Scraper (can be rate limited)
-    3. Google CSE (has IP restrictions in this case)
-    """
+def _build_backends():
+    """Build the list of search backends in priority order."""
     from .search_backends import (
         DuckDuckGoBackend,
         GoogleScraperBackend,
         GoogleCSEBackend,
     )
 
-    # Define backends in priority order
-    backends = [
+    return [
         DuckDuckGoBackend(),
         GoogleScraperBackend(),
         GoogleCSEBackend(
@@ -39,20 +33,43 @@ def search(query: str, num_results: int = 5):
         ),
     ]
 
-    for backend in backends:
-        try:
-            results = backend.search(query, num_results)
-            if results:
-                print(f"✅ Using search backend: {backend.name()}")
-                for url in results:
-                    yield url
-                return  # Success, don't try other backends
-            else:
-                print(f"⚠️ {backend.name()} returned no results")
-        except Exception as e:
-            print(f"⚠️ {backend.name()} failed: {type(e).__name__}")
-            # Continue to next backend
-            continue
+
+# Retry only the first backend (DDG) — subsequent backends are already fallbacks.
+_FIRST_BACKEND_RETRIES = 1
+_RETRY_DELAY = 2
+
+
+def search(query: str, num_results: int = 5):
+    """
+    Search with automatic fallback across multiple backends.
+    Yields URLs one by one.
+
+    Backends are tried in order:
+    1. DuckDuckGo (most reliable, no API key) — retried once on failure
+    2. Google Scraper (can be rate limited)
+    3. Google CSE (has IP restrictions in this case)
+    """
+    backends = _build_backends()
+
+    for i, backend in enumerate(backends):
+        retries = _FIRST_BACKEND_RETRIES if i == 0 else 0
+        for attempt in range(retries + 1):
+            try:
+                results = backend.search(query, num_results)
+                if results:
+                    print(f"✅ Using search backend: {backend.name()}")
+                    for url in results:
+                        yield url
+                    return
+                else:
+                    print(f"⚠️ {backend.name()} returned no results")
+                    break  # Empty results are not transient, skip retry
+            except Exception as e:
+                if attempt < retries:
+                    time.sleep(_RETRY_DELAY)
+                    continue
+                print(f"⚠️ {backend.name()} failed: {type(e).__name__}")
+                break
 
     # All backends failed
     print("❌ All search backends failed")

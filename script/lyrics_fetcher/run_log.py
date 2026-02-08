@@ -32,6 +32,7 @@ class FetchEvent:
     parse_ok: bool
     lyrics_length: int
     error: Optional[str] = None
+    converted: bool = False
 
 
 def _fetch_status(ev: FetchEvent) -> str:
@@ -40,6 +41,8 @@ def _fetch_status(ev: FetchEvent) -> str:
         return "fetch_fail"
     if not ev.parse_ok:
         return "parse_fail"
+    if ev.converted:
+        return "converted"
     return "parse_ok"
 
 
@@ -122,7 +125,8 @@ class RunLog:
         success = [e for e in fetch_evts if e.fetch_ok and e.parse_ok]
         if success:
             best = success[0]
-            result_str = f"{best.source_name} ({best.lyrics_length} chars)"
+            suffix = ", converted" if best.converted else ""
+            result_str = f"{best.source_name} ({best.lyrics_length} chars{suffix})"
         else:
             result_str = "none"
         lines.append(f"Total: {self.total_duration:.1f}s | Result: {result_str}")

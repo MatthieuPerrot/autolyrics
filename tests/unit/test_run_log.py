@@ -15,6 +15,7 @@ from tests.helpers.assertions import (
     assert_greater_equal,
     assert_contains_text,
     assert_in,
+    assert_not_in,
 )
 
 
@@ -81,6 +82,24 @@ class TestFetchEvent:
         assert_true(ev.parse_ok)
         assert_equal(ev.lyrics_length, 342)
         assert_equal(ev.error, None)
+        assert_false(ev.converted)
+
+    def test_converted_defaults_to_false(self):
+        ev = FetchEvent(
+            source_name="src", fetcher_type="requests", url="http://x",
+            phase=1, duration=0.1, http_status=200,
+            fetch_ok=True, parse_ok=True, lyrics_length=100,
+        )
+        assert_false(ev.converted)
+
+    def test_converted_can_be_set_true(self):
+        ev = FetchEvent(
+            source_name="j_lyric", fetcher_type="requests", url="http://x",
+            phase=1, duration=1.4, http_status=200,
+            fetch_ok=True, parse_ok=True, lyrics_length=1689,
+            converted=True,
+        )
+        assert_true(ev.converted)
 
     def test_stores_error(self):
         ev = FetchEvent(
@@ -257,6 +276,40 @@ class TestRunLogFormatSummary:
         summary = log.format_summary()
         assert_isinstance(summary, str)
 
+    def test_converted_result_shows_in_result_line(self):
+        log = RunLog("unravel", ["Ado"])
+        log.add_fetch_event(FetchEvent(
+            source_name="j_lyric", fetcher_type="requests",
+            url="http://j-lyric.net/song", phase=1,
+            duration=1.4, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=1689, converted=True,
+        ))
+        summary = log.format_summary()
+        assert_contains_text(summary, "1689 chars, converted")
+
+    def test_converted_shows_in_fetch_section(self):
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="j_lyric", fetcher_type="requests",
+            url="http://j-lyric.net/song", phase=1,
+            duration=1.4, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=1689, converted=True,
+        ))
+        summary = log.format_summary()
+        # In the fetch section, status should be "converted" not "parse_ok"
+        assert_contains_text(summary, "converted")
+
+    def test_native_result_does_not_show_converted(self):
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="animelyrics", fetcher_type="requests",
+            url="http://animelyrics.com/song", phase=1,
+            duration=0.8, http_status=200, fetch_ok=True, parse_ok=True,
+            lyrics_length=500,
+        ))
+        summary = log.format_summary()
+        assert_not_in("converted", summary)
+
 
 # ---------------------------------------------------------------------------
 # F2: to_jsonl
@@ -311,6 +364,20 @@ class TestRunLogToJsonl:
         for line in jsonl.strip().split("\n"):
             parsed = json.loads(line)
             assert_isinstance(parsed, dict)
+
+    def test_converted_field_serialized_in_jsonl(self):
+        log = RunLog("T", ["A"])
+        log.add_fetch_event(FetchEvent(
+            source_name="j_lyric", fetcher_type="requests", url="http://x",
+            phase=1, duration=1.4, http_status=200,
+            fetch_ok=True, parse_ok=True, lyrics_length=1689,
+            converted=True,
+        ))
+        jsonl = log.to_jsonl()
+        lines = jsonl.strip().split("\n")
+        fetch_lines = [json.loads(l) for l in lines if json.loads(l)["type"] == "fetch"]
+        assert_len(fetch_lines, 1)
+        assert_true(fetch_lines[0]["converted"])
 
     def test_empty_log_produces_header_only(self):
         log = RunLog("T", ["A"])

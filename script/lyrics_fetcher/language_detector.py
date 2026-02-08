@@ -4,6 +4,52 @@ import re
 import unicodedata
 
 
+# Accented characters that never appear in romaji.
+# Macrons (ā, ē, ī, ō, ū) ARE valid romaji and are excluded from this set.
+_NON_ROMAJI_ACCENTS = re.compile(
+    r'[àâäãåæçèéêëìíîïñòóôõöùúûüýÿ]',
+    re.IGNORECASE,
+)
+
+# French/Spanish keywords — high-frequency function words that never appear in romaji
+_NON_ROMAJI_LATIN_WORDS = re.compile(
+    r'\b('
+    # French
+    r'les|des|une|dans|pour|avec|est|sont|cette|mais|aussi|très|comme'
+    r'|'
+    # Spanish
+    r'las|los|una|por|pero|con|esta|como|más|muy'
+    r')\b',
+    re.IGNORECASE,
+)
+
+
+def _is_likely_non_romaji_latin(text: str) -> bool:
+    """Detect non-romaji Latin text (French, Spanish, etc.).
+
+    Two signals:
+      1. Accented characters (excluding macrons) above 1% of total characters
+      2. French/Spanish function words
+    Either signal alone is sufficient.
+    """
+    text_lower = text.lower()
+
+    # Check for accented characters above threshold
+    letter_count = sum(1 for c in text_lower if c.isalpha())
+    if letter_count > 0:
+        accent_count = len(_NON_ROMAJI_ACCENTS.findall(text_lower))
+        if accent_count / letter_count > 0.01:
+            return True
+
+    # Check for French/Spanish function words (need at least 2 matches
+    # to avoid false positives from single coincidental words)
+    matches = _NON_ROMAJI_LATIN_WORDS.findall(text_lower)
+    if len(matches) >= 2:
+        return True
+
+    return False
+
+
 def is_likely_english(text: str) -> bool:
     """
     Detect if text is likely English translation vs romaji.
@@ -44,6 +90,12 @@ def is_likely_english(text: str) -> bool:
         r'\b(desu|masu|mashita|masen|deshita)\b',
         r'\b(watashi|anata|kimi|ore|boku|kare|kanojo)\b',
         r'\b(kono|sono|ano|konna|sonna|anna)\b',
+        # Unambiguous Japanese nouns/verbs (never English words)
+        r'\b(kokoro|namida|sekai|yume|hikari|kaze|hoshi|tsuki|sora|umi|hana|unmei)\b',
+        # Conjunctions/adverbs
+        r'\b(soshite|dakara|demo|shikashi|sorede|nazenara)\b',
+        # Degree adverbs / adjectives
+        r'\b(motto|zutto|mada|mou|totemo|sugoi|kawaii)\b',
     ]
 
     # Normalize text
@@ -106,7 +158,8 @@ def is_likely_romaji(text: str) -> bool:
     """
     Detect if text is likely romaji.
 
-    Returns True if text appears to be romaji (not English, not Japanese characters).
+    Returns True if text appears to be romaji (not English, not Japanese characters,
+    and not another Latin-script language like French or Spanish).
     """
     # Reject if it's English
     if is_likely_english(text):
@@ -116,7 +169,11 @@ def is_likely_romaji(text: str) -> bool:
     if contains_japanese_characters(text):
         return False
 
-    # If it's neither English nor Japanese characters, it's likely romaji
+    # Reject non-romaji Latin languages (French, Spanish, etc.)
+    if _is_likely_non_romaji_latin(text):
+        return False
+
+    # If it's neither English nor Japanese characters nor other Latin, it's likely romaji
     return True
 
 
