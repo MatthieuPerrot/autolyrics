@@ -1,0 +1,185 @@
+"""Unit tests for _html_mentions_artist word-boundary matching."""
+
+from lyrics_fetcher.fallback import _html_mentions_artist
+
+from tests.helpers.assertions import assert_true, assert_false
+
+
+class TestRejectsSubstringFalsePositives:
+    """Short artist names must not match inside longer words."""
+
+    def test_ai_not_in_wait(self):
+        assert_false(
+            _html_mentions_artist("<html>WAIT for it</html>", ["AI"]),
+            "'AI' should not match inside 'WAIT'",
+        )
+
+    def test_ai_not_in_said(self):
+        assert_false(
+            _html_mentions_artist("<html>She SAID hello</html>", ["AI"]),
+            "'AI' should not match inside 'SAID'",
+        )
+
+    def test_ai_not_in_available(self):
+        assert_false(
+            _html_mentions_artist("<html>available now</html>", ["AI"]),
+            "'AI' should not match inside 'available'",
+        )
+
+    def test_zard_not_in_wizard(self):
+        assert_false(
+            _html_mentions_artist("<html>The WIZARD of Oz</html>", ["ZARD"]),
+            "'ZARD' should not match inside 'WIZARD'",
+        )
+
+    def test_zard_not_in_hazard(self):
+        assert_false(
+            _html_mentions_artist("<html>HAZARD warning</html>", ["ZARD"]),
+            "'ZARD' should not match inside 'HAZARD'",
+        )
+
+    def test_do_not_in_done(self):
+        assert_false(
+            _html_mentions_artist("<html>DONE loading</html>", ["DO"]),
+            "'DO' should not match inside 'DONE'",
+        )
+
+    def test_do_not_in_document(self):
+        assert_false(
+            _html_mentions_artist("<html>DOCUMENT ready</html>", ["DO"]),
+            "'DO' should not match inside 'DOCUMENT'",
+        )
+
+
+class TestMatchesWholeWordArtistNames:
+    """Artist names appearing as whole words must still match."""
+
+    def test_ai_standalone(self):
+        assert_true(
+            _html_mentions_artist("<html>Song by AI - lyrics</html>", ["AI"]),
+            "'AI' as a standalone word should match",
+        )
+
+    def test_zard_standalone(self):
+        assert_true(
+            _html_mentions_artist("<html>ZARD official page</html>", ["ZARD"]),
+            "'ZARD' as a standalone word should match",
+        )
+
+    def test_two_mix_exact(self):
+        assert_true(
+            _html_mentions_artist("<html>TWO-MIX discography</html>", ["TWO-MIX"]),
+            "'TWO-MIX' should match exactly",
+        )
+
+    def test_case_insensitive(self):
+        assert_true(
+            _html_mentions_artist("<html>zard official</html>", ["ZARD"]),
+            "matching should be case-insensitive",
+        )
+
+
+class TestHyphenSpaceNormalization:
+    """Hyphens and spaces are interchangeable between artist name and HTML."""
+
+    def test_hyphenated_artist_matches_spaced_html(self):
+        assert_true(
+            _html_mentions_artist("<html>two mix songs</html>", ["TWO-MIX"]),
+            "'TWO-MIX' should match 'two mix' in HTML",
+        )
+
+    def test_spaced_artist_matches_hyphenated_html(self):
+        assert_true(
+            _html_mentions_artist("<html>two-mix songs</html>", ["TWO MIX"]),
+            "'TWO MIX' should match 'two-mix' in HTML",
+        )
+
+
+class TestSpecialCharactersInNames:
+    """Special regex characters in artist names must be escaped properly."""
+
+    def test_larc_en_ciel(self):
+        assert_true(
+            _html_mentions_artist(
+                "<html>L'Arc~en~Ciel concert</html>", ["L'Arc~en~Ciel"]
+            ),
+            "L'Arc~en~Ciel with tildes should match",
+        )
+
+    def test_tm_revolution(self):
+        assert_true(
+            _html_mentions_artist(
+                "<html>T.M.Revolution new album</html>", ["T.M.Revolution"]
+            ),
+            "T.M.Revolution with dots should match",
+        )
+
+    def test_dots_not_treated_as_wildcards(self):
+        assert_false(
+            _html_mentions_artist(
+                "<html>TXMXRevolution</html>", ["T.M.Revolution"]
+            ),
+            "dots in artist name must not act as regex wildcards",
+        )
+
+
+class TestMultipleArtists:
+    """When multiple artists are given, any match is sufficient."""
+
+    def test_first_artist_matches(self):
+        assert_true(
+            _html_mentions_artist(
+                "<html>ZARD best hits</html>", ["ZARD", "B'z"]
+            ),
+            "should match when first artist is present",
+        )
+
+    def test_second_artist_matches(self):
+        assert_true(
+            _html_mentions_artist(
+                "<html>B'z greatest</html>", ["ZARD", "B'z"]
+            ),
+            "should match when second artist is present",
+        )
+
+    def test_none_matches(self):
+        assert_false(
+            _html_mentions_artist(
+                "<html>Ayumi Hamasaki page</html>", ["ZARD", "B'z"]
+            ),
+            "should not match when no artist is present",
+        )
+
+
+class TestEdgeCases:
+    """Edge cases: empty list, single-char names, boundary positions."""
+
+    def test_empty_artist_list(self):
+        assert_false(
+            _html_mentions_artist("<html>anything</html>", []),
+            "empty artist list should never match",
+        )
+
+    def test_single_char_artist_exact(self):
+        assert_true(
+            _html_mentions_artist("<html>Artist: X - Song</html>", ["X"]),
+            "single-char artist 'X' as standalone word should match",
+        )
+
+    def test_single_char_artist_not_in_word(self):
+        assert_false(
+            _html_mentions_artist("<html>EXTRA lyrics</html>", ["X"]),
+            "single-char artist 'X' should not match inside 'EXTRA'",
+        )
+
+    def test_artist_at_start_of_html(self):
+        assert_true(
+            _html_mentions_artist("ZARD lyrics page", ["ZARD"]),
+            "artist at the very start of HTML should match",
+        )
+
+    def test_artist_at_end_of_html(self):
+        assert_true(
+            _html_mentions_artist("Lyrics by ZARD", ["ZARD"]),
+            "artist at the very end of HTML should match",
+        )

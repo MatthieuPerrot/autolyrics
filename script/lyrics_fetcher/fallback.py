@@ -123,17 +123,19 @@ def _fetch_requests(url: str) -> tuple:
 
 
 def _html_mentions_artist(html, artists):
-    """Check if any artist name appears in the fetched HTML (case-insensitive)."""
+    """Check if any artist name appears in the fetched HTML as a whole word."""
     html_lower = html.lower()
     for artist in artists:
         artist_lower = artist.lower()
-        if artist_lower in html_lower:
-            return True
-        # Check with hyphens/spaces swapped (URL slugs vs display names)
-        if artist_lower.replace("-", " ") in html_lower:
-            return True
-        if artist_lower.replace(" ", "-") in html_lower:
-            return True
+        variants = {artist_lower}
+        if "-" in artist_lower:
+            variants.add(artist_lower.replace("-", " "))
+        if " " in artist_lower:
+            variants.add(artist_lower.replace(" ", "-"))
+        for variant in variants:
+            pattern = r'\b' + re.escape(variant) + r'\b'
+            if re.search(pattern, html_lower):
+                return True
     return False
 
 
