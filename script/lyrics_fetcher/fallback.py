@@ -20,9 +20,10 @@ from bs4 import BeautifulSoup
 
 from .language_detector import detect_lyrics_language
 from .quality import is_acceptable
+from .rate_limiter import RateLimiter, random_user_agent
 from .run_log import RunLog, SearchEvent, FetchEvent
 from .source_registry import Fetcher, build_registry
-from .storage import append_log
+from .storage import append_log, log_dir
 
 
 # HTTP 403 status code indicates Cloudflare or bot-protection blocking
@@ -107,7 +108,7 @@ def _is_cloudflare_challenge(html: str) -> bool:
 def _fetch_requests(url: str) -> tuple:
     """Fetch a URL with requests. Returns (html, status_code)."""
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (lyrics-scraper)"}
+        headers = {"User-Agent": random_user_agent()}
         resp = requests_lib.get(url, headers=headers, timeout=10)
         if resp.status_code == _STATUS_403:
             return None, _STATUS_403
@@ -160,7 +161,7 @@ def _html_mentions_artist(html, artists):
 
 def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
                              run_log=None, phase=0, cancel_event=None,
-                             artists=None):
+                             artists=None, rate_limiter=None):
     """Try all URLs for a source using the given fetcher.
 
     Args:
@@ -172,6 +173,7 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
         phase: phase number (1 or 2) for event recording
         cancel_event: optional threading.Event — checked before each URL
         artists: optional list of artist names for HTML validation
+        rate_limiter: optional RateLimiter — waits before REQUESTS fetches
 
     Returns:
         (lyrics, blocked_urls, converted) where blocked_urls is a list of
@@ -184,6 +186,9 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
         if cancel_event is not None and cancel_event.is_set():
             break
 
+        if rate_limiter is not None and fetcher_type == Fetcher.REQUESTS:
+            rate_limiter.wait_for_domain(url)
+
         t0 = time.time()
 
         if fetcher_type == Fetcher.REQUESTS:
@@ -193,6 +198,9 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
             status_code = 200 if html else 0
 
         duration = time.time() - t0
+
+        if rate_limiter is not None and fetcher_type == Fetcher.REQUESTS:
+            rate_limiter.record_response(url, status_code)
 
         fetch_ok = html is not None
         parse_ok = False
@@ -295,7 +303,7 @@ def _submit_result(lyrics, source, found_event, result_holder, converted=False):
 
 
 def _run_source_pipeline(source, urls, found_event, result_holder, run_log,
-                         artists=None):
+                         artists=None, rate_limiter=None):
     """Run one source through its full fetcher pipeline independently.
 
     1. Fast attempt: REQUESTS (sequential per URL, fast)
@@ -310,7 +318,7 @@ def _run_source_pipeline(source, urls, found_event, result_holder, run_log,
         lyrics, blocked_urls, converted = _try_source_with_fetcher(
             source, urls, Fetcher.REQUESTS,
             run_log=run_log, phase=1, cancel_event=found_event,
-            artists=artists,
+            artists=artists, rate_limiter=rate_limiter,
         )
         if _submit_result(lyrics, source, found_event, result_holder,
                           converted=converted):
@@ -459,6 +467,7 @@ def get_romaji_lyrics(title: str, artists: list) -> str:
     # Per-source concurrent pipelines
     found_event = threading.Event()
     result_holder = _ResultHolder()
+    rate_limiter = RateLimiter(log_dir=log_dir())
 
     pipeline_sources = [s for s in sources if s.name in source_urls]
     executor = ThreadPoolExecutor(max_workers=len(pipeline_sources))
@@ -467,7 +476,7 @@ def get_romaji_lyrics(title: str, artists: list) -> str:
             _run_source_pipeline,
             source, source_urls[source.name],
             found_event, result_holder, run_log,
-            artists=artists,
+            artists=artists, rate_limiter=rate_limiter,
         )
         for source in pipeline_sources
     ]
