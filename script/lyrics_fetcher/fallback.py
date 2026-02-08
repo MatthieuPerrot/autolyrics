@@ -9,6 +9,7 @@ Any fetcher from any source that finds acceptable lyrics triggers
 immediate early-exit for everything else via a shared threading.Event.
 """
 
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -24,6 +25,20 @@ from .storage import append_log
 
 # HTTP 403 status code indicates Cloudflare or bot-protection blocking
 _STATUS_403 = 403
+
+# Parenthesized language markers in URLs that indicate non-romaji content
+_NON_ROMAJI_URL_PATTERN = re.compile(
+    r'\('
+    r'(?:english|eng|français|french|fr|spanish|español|chinese|korean'
+    r'|deutsch|german|italian|italiano|portuguese|russian)'
+    r'\)',
+    re.IGNORECASE,
+)
+
+
+def _is_non_romaji_language_url(url: str) -> bool:
+    """Return True if URL contains a language marker indicating non-romaji content."""
+    return _NON_ROMAJI_URL_PATTERN.search(url) is not None
 
 
 class _ResultHolder:
@@ -311,6 +326,11 @@ def _search_one(source, title, artists, run_log):
     t0 = time.time()
     try:
         urls = source.search(title, artists)
+        if urls:
+            filtered = [u for u in urls if _is_non_romaji_language_url(u)]
+            for u in filtered:
+                print(f"  ... {source.name} | skipped (language marker) | {u}")
+            urls = [u for u in urls if not _is_non_romaji_language_url(u)]
         duration = time.time() - t0
         run_log.add_search_event(SearchEvent(
             source_name=source.name,

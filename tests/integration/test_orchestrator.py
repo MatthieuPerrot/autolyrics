@@ -1393,3 +1393,82 @@ class TestNativeOverConversion:
 
         assert_is_not_none(result)
         assert_not_in("Paroles non trouvées", result)
+
+
+# ---------------------------------------------------------------------------
+# URL language marker filtering
+# ---------------------------------------------------------------------------
+
+class TestUrlLanguageFiltering:
+    """URLs with non-romaji language markers are excluded before fetching."""
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.fallback._finalize_run")
+    def test_filters_out_language_marked_urls(
+        self, mock_finalize, mock_fetch, mock_registry
+    ):
+        """Source returns two URLs — one with (english) marker.
+        Only the clean URL should be fetched.
+        """
+        sources = [
+            LyricsSource(
+                name="nautiljon",
+                search=lambda t, a: [
+                    "https://nautiljon.com/paroles/song+(english).html",
+                    "https://nautiljon.com/paroles/song.html",
+                ],
+                parse=lambda h: _romaji_lyrics("nautiljon"),
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=3,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.return_value = (_MOCK_HTML, 200)
+
+        result = get_romaji_lyrics("SONG TITLE", ["ARTIST"])
+
+        assert_equal(
+            mock_fetch.call_count, 1,
+            "only the clean URL should be fetched (language-marked URL filtered out)",
+        )
+        mock_fetch.assert_called_with("https://nautiljon.com/paroles/song.html")
+        assert_contains_text(result, "lyrics_from_nautiljon")
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.fallback._finalize_run")
+    def test_keeps_urls_without_language_markers(
+        self, mock_finalize, mock_fetch, mock_registry
+    ):
+        """Source returns two clean URLs — both should be fetched if needed."""
+        fetch_count = []
+
+        def fetch_side_effect(url):
+            fetch_count.append(url)
+            if "page1" in url:
+                return (None, 500)
+            return (_MOCK_HTML, 200)
+
+        sources = [
+            LyricsSource(
+                name="source",
+                search=lambda t, a: [
+                    "https://source.com/page1.html",
+                    "https://source.com/page2.html",
+                ],
+                parse=lambda h: _romaji_lyrics("source"),
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=3,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.side_effect = fetch_side_effect
+
+        result = get_romaji_lyrics("TITLE", ["ARTIST"])
+
+        assert_equal(
+            len(fetch_count), 2,
+            "both clean URLs should be attempted",
+        )
+        assert_contains_text(result, "lyrics_from_source")
