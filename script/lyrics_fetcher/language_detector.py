@@ -35,13 +35,15 @@ def is_likely_english(text: str) -> bool:
         r"'(s|re|ve|ll|d|t)\b", # contractions: it's, you're, I've, etc.
     ]
 
-    # Common romaji particles and verb endings (very distinctive)
+    # Romaji indicators that are unambiguous (not English words).
+    # - "to" and "no" are excluded: common English preposition/determiner.
+    # - Verb ending pattern (ru/ta/te/shi/...) removed: too broad, matches
+    #   English words like "white", "write", "state", "minute".
     romaji_indicators = [
-        r'\b(wa|wo|ga|no|ni|de|to|ka|mo|ne|yo|sa|ze|na|tte|nda|kedo)\b',
+        r'\b(wa|wo|ga|ni|de|ka|mo|ne|yo|sa|ze|na|tte|nda|kedo)\b',
         r'\b(desu|masu|mashita|masen|deshita)\b',
         r'\b(watashi|anata|kimi|ore|boku|kare|kanojo)\b',
         r'\b(kono|sono|ano|konna|sonna|anna)\b',
-        r'\b\w+(ru|ta|te|shi|tsu|chi|tsu|dzu)\b',  # verb/adjective endings
     ]
 
     # Normalize text

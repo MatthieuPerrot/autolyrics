@@ -27,18 +27,31 @@ _STATUS_403 = 403
 
 
 class _ResultHolder:
-    """Thread-safe container for the best lyrics result."""
+    """Thread-safe container for the best lyrics result (3-tier priority).
+
+    Tiers (highest to lowest priority):
+      - native:    from source.parse — triggers immediate early-exit
+      - converted: from raw_parse + romaji converter — waits for native
+      - fallback:  is_acceptable() returned False — not returned to user
+    """
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._acceptable = None   # (lyrics, quality)
+        self._native = None       # (lyrics, quality) — from source.parse
+        self._converted = None    # (lyrics, quality) — from raw_parse + converter
         self._fallback = None     # (lyrics, quality) — best unacceptable
 
     def submit(self, lyrics, quality):
-        """Store first acceptable result."""
+        """Store first native acceptable result."""
         with self._lock:
-            if self._acceptable is None:
-                self._acceptable = (lyrics, quality)
+            if self._native is None:
+                self._native = (lyrics, quality)
+
+    def submit_converted(self, lyrics, quality):
+        """Store first converted acceptable result."""
+        with self._lock:
+            if self._converted is None:
+                self._converted = (lyrics, quality)
 
     def submit_fallback(self, lyrics, quality):
         """Store highest-quality unacceptable result."""
@@ -48,17 +61,21 @@ class _ResultHolder:
 
     @property
     def acceptable(self):
-        """Return first acceptable result, or None."""
+        """Return best result: native > converted > None."""
         with self._lock:
-            if self._acceptable:
-                return self._acceptable[0]
+            if self._native:
+                return self._native[0]
+            if self._converted:
+                return self._converted[0]
             return None
 
     @property
     def has_any_result(self):
-        """Return True if any result (acceptable or fallback) exists."""
+        """Return True if any result (native, converted, or fallback) exists."""
         with self._lock:
-            return self._acceptable is not None or self._fallback is not None
+            return (self._native is not None
+                    or self._converted is not None
+                    or self._fallback is not None)
 
 
 def _is_cloudflare_challenge(html: str) -> bool:
@@ -121,7 +138,9 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
         artists: optional list of artist names for HTML validation
 
     Returns:
-        (lyrics, blocked_urls) where blocked_urls is a list of URLs that got 403.
+        (lyrics, blocked_urls, converted) where blocked_urls is a list of
+        URLs that got 403 and converted is True when lyrics came from
+        raw_parse + romaji converter (not from the native parse path).
     """
     blocked_urls = []
 
@@ -142,6 +161,7 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
         fetch_ok = html is not None
         parse_ok = False
         lyrics = None
+        converted = False
         lyrics_length = 0
 
         if html:
@@ -170,6 +190,7 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
                 if raw_text is not None:
                     from .romaji_converter import japanese_to_romaji
                     lyrics = japanese_to_romaji(raw_text)
+                    converted = lyrics is not None
             parse_ok = lyrics is not None
             lyrics_length = len(lyrics) if lyrics else 0
             print(
@@ -196,14 +217,14 @@ def _try_source_with_fetcher(source, urls, fetcher_type, fetcher_instance=None,
             ))
 
         if lyrics:
-            return lyrics, blocked_urls
+            return lyrics, blocked_urls, converted
 
         # Domain-level block — remaining URLs will also be 403'd
         if fetcher_type == Fetcher.REQUESTS and status_code == _STATUS_403:
             blocked_urls.append(url)
             break
 
-    return None, blocked_urls
+    return None, blocked_urls, False
 
 
 def _get_fetcher_class(fetcher_type):
@@ -217,11 +238,14 @@ def _get_fetcher_class(fetcher_type):
     raise ValueError(f"No fetcher class for {fetcher_type}")
 
 
-def _submit_result(lyrics, source, found_event, result_holder):
-    """Submit lyrics to result_holder. Returns True if acceptable (triggers early-exit)."""
+def _submit_result(lyrics, source, found_event, result_holder, converted=False):
+    """Submit lyrics to result_holder. Returns True if native acceptable (triggers early-exit)."""
     if not lyrics:
         return False
     if is_acceptable(lyrics):
+        if converted:
+            result_holder.submit_converted(lyrics, source.romaji_quality)
+            return False
         result_holder.submit(lyrics, source.romaji_quality)
         found_event.set()
         return True
@@ -242,12 +266,13 @@ def _run_source_pipeline(source, urls, found_event, result_holder, run_log,
     # Phase 1: Fast attempt with REQUESTS
     blocked_urls = []
     if Fetcher.REQUESTS in source.fetchers:
-        lyrics, blocked_urls = _try_source_with_fetcher(
+        lyrics, blocked_urls, converted = _try_source_with_fetcher(
             source, urls, Fetcher.REQUESTS,
             run_log=run_log, phase=1, cancel_event=found_event,
             artists=artists,
         )
-        if _submit_result(lyrics, source, found_event, result_holder):
+        if _submit_result(lyrics, source, found_event, result_holder,
+                          converted=converted):
             return
 
     if found_event.is_set() or not blocked_urls:
@@ -265,12 +290,13 @@ def _run_source_pipeline(source, urls, found_event, result_holder, run_log,
         with fetcher_cls() as fi:
             if found_event.is_set():
                 return
-            lyrics, _ = _try_source_with_fetcher(
+            lyrics, _, converted = _try_source_with_fetcher(
                 source, blocked_urls, fetcher_type, fi,
                 run_log=run_log, phase=2, cancel_event=found_event,
                 artists=artists,
             )
-            _submit_result(lyrics, source, found_event, result_holder)
+            _submit_result(lyrics, source, found_event, result_holder,
+                           converted=converted)
 
     threads = []
     for f in escalation_fetchers:

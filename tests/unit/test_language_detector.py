@@ -67,6 +67,38 @@ class TestIsLikelyEnglish:
             "romaji particles (wa) should override English phrase detection",
         )
 
+    def test_pure_english_with_ambiguous_words(self):
+        """English text containing 'to' or 'no' (also romaji particles)
+        should still be detected as English when no strong romaji is present.
+        """
+        text = (
+            "As if throwing off the sadness and pain,\n"
+            "I flap my wings,\n"
+            "And in my heart, I spread wide\n"
+            "The wings of courage that you've given to me.\n"
+            "I want to feel the beat of this irreplaceable love\n"
+            "So much, it's heart-wrenching and maddening.\n"
+        )
+        assert_true(
+            is_likely_english(text),
+            "pure English containing 'to' should still be detected as English",
+        )
+
+    def test_english_with_te_ending_words(self):
+        """English words ending in 'te' (white, write) should not be
+        confused with Japanese verb endings.
+        """
+        text = (
+            "I'm feelin' like my last name Yuy, First name Heero\n"
+            "Gundam on my mind as I write this on my Evo\n"
+            "I'm jammin' White Reflection as I write my reflections\n"
+            "Eliminate 'em all, that's my mission protocol\n"
+        )
+        assert_true(
+            is_likely_english(text),
+            "English text with 'write'/'white' should be detected as English",
+        )
+
 
 # ---------------------------------------------------------------------------
 # is_likely_romaji
@@ -102,6 +134,21 @@ class TestIsLikelyRomaji:
         assert_true(
             is_likely_romaji(text),
             "mixed English/romaji should be accepted as romaji",
+        )
+
+    def test_pure_english_with_ambiguous_words_rejected(self):
+        """English text with 'to'/'no' should be rejected as romaji."""
+        text = (
+            "As if throwing off the sadness and pain,\n"
+            "I flap my wings,\n"
+            "And in my heart, I spread wide\n"
+            "The wings of courage that you've given to me.\n"
+            "I want to feel the beat of this irreplaceable love\n"
+            "So much, it's heart-wrenching and maddening.\n"
+        )
+        assert_false(
+            is_likely_romaji(text),
+            "pure English with 'to' should be rejected as romaji",
         )
 
     def test_japanese_characters_rejected(self):

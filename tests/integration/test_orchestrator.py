@@ -1312,3 +1312,84 @@ class TestJapaneseToRomajiConversion:
         finally:
             if original_japanese_to_romaji is not None:
                 romaji_converter.japanese_to_romaji = original_japanese_to_romaji
+
+
+# ---------------------------------------------------------------------------
+# Native romaji preferred over cutlet conversion
+# ---------------------------------------------------------------------------
+
+class TestNativeOverConversion:
+    """Native romaji results are preferred over cutlet-converted results,
+    even when the converted result arrives first.
+    """
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.fallback._finalize_run")
+    @patch("lyrics_fetcher.romaji_converter.japanese_to_romaji")
+    def test_native_wins_over_converted_even_when_slower(
+        self, mock_converter, mock_finalize, mock_fetch, mock_registry
+    ):
+        """Converted result arrives instantly, native arrives after 1s.
+        Native should win because converted does not trigger early-exit.
+        """
+        def fetch_side_effect(url):
+            if "native" in url:
+                time.sleep(1.0)
+            return (_MOCK_JAPANESE_HTML, 200)
+
+        mock_converter.return_value = _romaji_lyrics("converted_source")
+
+        sources = [
+            LyricsSource(
+                name="converted_source",
+                search=lambda t, a: ["http://converted.example.com"],
+                parse=lambda h: None,
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=1,
+                raw_parse=lambda h: _JAPANESE_LYRICS,
+            ),
+            LyricsSource(
+                name="native_source",
+                search=lambda t, a: ["http://native.example.com"],
+                parse=lambda h: _romaji_lyrics("native_source"),
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=5,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.side_effect = fetch_side_effect
+
+        result = get_romaji_lyrics("TITLE", ["ARTIST"])
+
+        assert_contains_text(result, "lyrics_from_native_source")
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.fallback._finalize_run")
+    @patch("lyrics_fetcher.romaji_converter.japanese_to_romaji")
+    def test_converted_returned_when_no_native_available(
+        self, mock_converter, mock_finalize, mock_fetch, mock_registry
+    ):
+        """Only source uses raw_parse + conversion (no native source).
+        Converted result should still be returned.
+        """
+        mock_converter.return_value = _romaji_lyrics("converted_source")
+
+        sources = [
+            LyricsSource(
+                name="converted_source",
+                search=lambda t, a: ["http://converted.example.com"],
+                parse=lambda h: None,
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=1,
+                raw_parse=lambda h: _JAPANESE_LYRICS,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.return_value = (_MOCK_JAPANESE_HTML, 200)
+
+        result = get_romaji_lyrics("TITLE", ["ARTIST"])
+
+        assert_is_not_none(result)
+        assert_not_in("Paroles non trouvées", result)
