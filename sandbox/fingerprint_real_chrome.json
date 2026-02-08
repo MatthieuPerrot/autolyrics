@@ -1,0 +1,31 @@
+{
+  "document.__driver_evaluate": false,
+  "document.__selenium_unwrapped": false,
+  "document.__webdriver_evaluate": false,
+  "has_cdc": false,
+  "navigator.deviceMemory": 8,
+  "navigator.hardwareConcurrency": 16,
+  "navigator.languages": [
+    "fr-FR",
+    "fr",
+    "en-US",
+    "en"
+  ],
+  "navigator.maxTouchPoints": 0,
+  "navigator.platform": "Linux x86_64",
+  "navigator.plugins.length": 5,
+  "navigator.userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+  "navigator.webdriver": false,
+  "permissions_query": "prompt",
+  "screen.height": 1200,
+  "screen.width": 1920,
+  "webgl_renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi rembrandt LLVM 20.1.2), OpenGL 4.6)",
+  "webgl_vendor": "Google Inc. (AMD)",
+  "window.chrome": true,
+  "window.chrome.runtime": false,
+  "window.chrome.runtime.id": false,
+  "window.innerHeight": 1081,
+  "window.innerWidth": 1920,
+  "window.outerHeight": 1168,
+  "window.outerWidth": 1920
+}

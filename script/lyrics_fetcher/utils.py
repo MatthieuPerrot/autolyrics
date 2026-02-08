@@ -13,3 +13,46 @@ def detect_script(text: str) -> str:
     return 'latin'
 
 
+def search(query: str, num_results: int = 5):
+    """
+    Search with automatic fallback across multiple backends.
+    Yields URLs one by one.
+
+    Backends are tried in order:
+    1. DuckDuckGo (most reliable, no API key)
+    2. Google Scraper (can be rate limited)
+    3. Google CSE (has IP restrictions in this case)
+    """
+    from .search_backends import (
+        DuckDuckGoBackend,
+        GoogleScraperBackend,
+        GoogleCSEBackend,
+    )
+
+    # Define backends in priority order
+    backends = [
+        DuckDuckGoBackend(),
+        GoogleScraperBackend(),
+        GoogleCSEBackend(
+            api_key="AIzaSyD5TjrWP30FSRBGZOieAozKV3C5QYr7mYA",
+            cx="84f6b21ca8e964f6a"
+        ),
+    ]
+
+    for backend in backends:
+        try:
+            results = backend.search(query, num_results)
+            if results:
+                print(f"✅ Using search backend: {backend.name()}")
+                for url in results:
+                    yield url
+                return  # Success, don't try other backends
+            else:
+                print(f"⚠️ {backend.name()} returned no results")
+        except Exception as e:
+            print(f"⚠️ {backend.name()} failed: {type(e).__name__}")
+            # Continue to next backend
+            continue
+
+    # All backends failed
+    print("❌ All search backends failed")

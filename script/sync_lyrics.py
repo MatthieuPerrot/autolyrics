@@ -24,11 +24,18 @@ class LyricsSyncer:
         self.mp3_path = mp3_path
         self.lyrics_path = lyrics_path
         self.mode = mode
-        # self.output_path et self.output_format seront définis par _determine_output_format_and_path
-        self.output_path = None
-        self.output_format = None
+        # self.output_path et self.output_format seront définis ci-dessous
+        self.output_format = 'srt'
 
-        self._determine_output_format_and_path(output_path_arg)
+        # Use output_path_arg if provided, otherwise generate default path
+        if output_path_arg:
+            self.output_path = output_path_arg
+            # Determine format from extension
+            _, ext = os.path.splitext(output_path_arg)
+            if ext.lower() in ['.lrc', '.srt']:
+                self.output_format = ext.lower()[1:]  # Remove the dot
+        else:
+            self.output_path = self._generate_output_path()
 
         if not os.path.exists(self.mp3_path):
             raise FileNotFoundError(f"Fichier MP3 non trouvé : {self.mp3_path}")
@@ -317,7 +324,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        syncer = LyricsSyncer(args.mp3_path, args.lyrics_path, args.output, args.output_format)
+        syncer = LyricsSyncer(args.mp3_path, args.lyrics_path, args.output)
 
         if args.mode == "line":
             # Le mode manuel génère toujours du LRC pour l'instant.
@@ -359,7 +366,9 @@ def main():
     except FileNotFoundError as e:
         print(f"Erreur : {e}")
     except Exception as e:
+        import traceback
         print(f"Une erreur inattendue est survenue : {e}")
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()

@@ -1,25 +1,27 @@
-import requests
 from bs4 import BeautifulSoup
-from googlesearch import search
 
-def find_lyrics_genius(title: str, artists: list) -> str:
+from .chrome_fetcher import fetch_with_chrome_fallback
+from .utils import search
+from .language_detector import is_likely_romaji
+
+
+def search_genius(title: str, artists: list) -> list:
+    """Return candidate URLs from genius.com for the given title/artists."""
     artists_str = ' '.join([f'"{artist}"' for artist in artists])
     query = f'site:genius.com "romanized" {artists_str} "{title}"'
     print(f"🔍 [Fallback] Recherche Genius : {query}")
 
+    urls = []
     for url in search(query, num_results=5):
         if "genius.com" in url:
-            print(f"✅ URL trouvée (Genius): {url}")
-            lyrics = scrape_genius_lyrics(url)
-            if lyrics:
-                return lyrics
-    return None
+            urls.append(url)
+    return urls
 
-def scrape_genius_lyrics(url: str) -> str:
+
+def parse_genius(html: str) -> str:
+    """Extract romaji lyrics from Genius HTML. Pure function: no fetching."""
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (lyrics-scraper)"}
-        resp = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(resp.content, "html.parser")
+        soup = BeautifulSoup(html, "html.parser")
 
         containers = soup.find_all("div", {"data-lyrics-container": "true"})
         if not containers:
@@ -31,6 +33,10 @@ def scrape_genius_lyrics(url: str) -> str:
         if "to be transcribed" in full_lyrics.lower():
             return None
 
+        if not is_likely_romaji(full_lyrics):
+            print(f"⚠️  Skipping non-romaji lyrics from Genius (English or Japanese)")
+            return None
+
         return full_lyrics
 
     except Exception as e:
@@ -38,3 +44,13 @@ def scrape_genius_lyrics(url: str) -> str:
         return None
 
 
+def find_lyrics_genius(title: str, artists: list, chrome_fetcher=None) -> str:
+    """Backward-compatible wrapper: search + fetch + parse."""
+    for url in search_genius(title, artists):
+        print(f"✅ URL trouvée (Genius): {url}")
+        html = fetch_with_chrome_fallback(url, chrome_fetcher)
+        if html:
+            lyrics = parse_genius(html)
+            if lyrics:
+                return lyrics
+    return None

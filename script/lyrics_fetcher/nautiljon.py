@@ -1,72 +1,67 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-from googlesearch import search
 from bs4 import BeautifulSoup
 
+from .chrome_fetcher import fetch_with_chrome_fallback
+from .utils import search
+from .language_detector import is_likely_romaji
 
-def find_lyrics_nautiljon(title: str, artists: list) -> str:
+
+def search_nautiljon(title: str, artists: list) -> list:
+    """Return candidate URLs from nautiljon.com for the given title/artists."""
     artists_str = ' '.join([f'"{artist}"' for artist in artists])
     query1 = f'site:https://www.nautiljon.com/paroles {artists_str} \"{title}\"'
     query2 = f'site:https://www.nautiljon.com/paroles \"{title}\"'
-    
+
+    urls = []
     for query in [query1, query2]:
-        print(f"🔍 Recherche Nautiljon : {query}")
+        print(f"🔍 Recherche Nautiljon: {query}")
         for url in search(query, num_results=2):
+            print(f"🔍 URL (Nautiljon): {url}")
             if "nautiljon.com/paroles" in url:
-                print(f"✅ URL trouvée (Nautiljon): {url}")
-                lyrics = scrape_nautiljon_selenium(url)
-                if lyrics:
-                    return lyrics
-    return None
+                urls.append(url)
+    return urls
 
 
-def scrape_nautiljon_selenium(url: str) -> str:
+def parse_nautiljon(html: str) -> str:
+    """Extract romaji lyrics from Nautiljon HTML. Pure function: no fetching."""
     try:
-        chrome_options = Options()
-        chrome_options.add_argument("--headless=new")  # 🆕 mode furtif
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--window-size=1920,1080")
-        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36")
+        soup = BeautifulSoup(html, "html.parser")
+        lyrics_section = soup.find("span", {"itemprop": "lyrics"})
 
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+        if not lyrics_section:
+            return None
 
-        # ✅ On modifie les propriétés JavaScript connues pour trahir Selenium
-        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-            "source": """
-                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
-                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3]});
-            """
-        })
+        text = lyrics_section.get_text()
 
-        driver.get(url)
+        if not is_likely_romaji(text):
+            print(f"⚠️  Skipping non-romaji lyrics from Nautiljon (English or Japanese)")
+            return None
 
-        # ⏳ Attente explicite que l'élément lyrics apparaisse
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, '[itemprop="lyrics"]'))
-        )
-
-        page_source = driver.page_source
-        soup = BeautifulSoup(page_source, 'html.parser')
-        lyrics_section = soup.find('span', {'itemprop': 'lyrics'})
-
-        if lyrics_section:
-            text = lyrics_section.get_text()
-        else:
-            text = None
-
-        driver.quit()
         return text
 
     except Exception as e:
-        print(f"❌ Erreur Selenium/Nautiljon furtif : {e}")
+        print(f"❌ Erreur scraping Nautiljon : {e}")
         return None
+
+
+def raw_parse_nautiljon(html: str) -> str | None:
+    """Extract lyrics text from Nautiljon HTML without romaji validation."""
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        lyrics_section = soup.find("span", {"itemprop": "lyrics"})
+        if not lyrics_section:
+            return None
+        return lyrics_section.get_text()
+    except Exception:
+        return None
+
+
+def find_lyrics_nautiljon(title: str, artists: list, chrome_fetcher=None) -> str:
+    """Backward-compatible wrapper: search + fetch + parse."""
+    for url in search_nautiljon(title, artists):
+        print(f"✅ URL trouvée (Nautiljon): {url}")
+        html = fetch_with_chrome_fallback(url, chrome_fetcher)
+        if html:
+            lyrics = parse_nautiljon(html)
+            if lyrics:
+                return lyrics
+    return None

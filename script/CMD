@@ -1,0 +1,33 @@
+# commandes de lecture / affichage des sous-titres
+# silence mpeg has been generated with :
+ffmpeg -t 1500 -s 1024x768 -f rawvideo -pix_fmt rgb24 -r 25 -i /dev/zero silence.mpeg
+
+
+## ok
+mpv --no-audio-display --force-window --sub-file=test.srt test.mp3
+mplayer silence.mpeg -sub test.srt -audiofile test.mp3
+vlc test.mp3 --sub-file test.srt --audio-visual visual
+
+## ko
+mplayer test.mp3 -sub test.srt
+
+# manipulation de fenêtre
+## récupérer l'id de la fenêtre mpv
+gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell/Extensions/Windows --method org.gnome.Shell.Extensions.Windows.List | head -c -4 | tail -c +3 | sed 's/\\"/"/g' | jq '.[] | select(.wm_class == "mpv") | .id'
+
+
+# à tester (manipulation de fenêtre X11)
+cd ~/dev/git/xwinwrap
+xprop et xwininfo
+
+
+# dernier test
+mpv --input-cursor-passthrough=yes --ontop --no-audio-display --force-window --sub-file=test3bis.srt test.mp3 --force-rgba-osd-rendering --background=#00000000 --alpha=yes --geometry="$(xwininfo -root | grep geometry | sed 's/.*geometry //g')" --title="plop" --loop 0 --ontop-level=system --no-border --gpu-context=x11egl
+
+
+#-----------------------
+# mp3 en court d'écoute sous mplayer --> génération de srt colorés et jouable avec mpv
+
+./sync_lyrics.py -o raw.srt --mode auto_stablets input.mp3 input.txt
+./postprocess_srt.py raw.srt input.txt output.srt --display_mode line_plus_next
+play.sh input.mp3 output.srt

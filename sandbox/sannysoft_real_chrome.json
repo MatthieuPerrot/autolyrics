@@ -1,0 +1,226 @@
+{
+  "Broken Image Dimensions": {
+    "failed": false,
+    "value": "16x16"
+  },
+  "CHR_BATTERY": {
+    "failed": false,
+    "value": "ok"
+  },
+  "CHR_DEBUG_TOOLS": {
+    "failed": false,
+    "value": "ok"
+  },
+  "CHR_MEMORY": {
+    "failed": false,
+    "value": "ok"
+  },
+  "Canvas1": {
+    "failed": false,
+    "value": "Hash: -1129892787"
+  },
+  "Canvas2": {
+    "failed": false,
+    "value": "Hash: -1129892787"
+  },
+  "Canvas3 (iframe sandbox)": {
+    "failed": false,
+    "value": "Hash: -1129892787"
+  },
+  "Canvas4 (iframe sandbox)": {
+    "failed": false,
+    "value": "Hash: -1129892787"
+  },
+  "Canvas5 (iframe)": {
+    "failed": false,
+    "value": "Hash: -1129892787"
+  },
+  "Chrome (New)": {
+    "failed": false,
+    "value": "present (passed)"
+  },
+  "HEADCHR_CHROME_OBJ": {
+    "failed": false,
+    "value": "ok"
+  },
+  "HEADCHR_IFRAME": {
+    "failed": false,
+    "value": "ok"
+  },
+  "HEADCHR_PERMISSIONS": {
+    "failed": false,
+    "value": "ok"
+  },
+  "HEADCHR_PLUGINS": {
+    "failed": false,
+    "value": "ok"
+  },
+  "HEADCHR_UA": {
+    "failed": false,
+    "value": "ok"
+  },
+  "Languages (Old)": {
+    "failed": false,
+    "value": "fr-FR,fr,en-US,en"
+  },
+  "MQ_SCREEN": {
+    "failed": false,
+    "value": "ok"
+  },
+  "PHANTOM_ETSL": {
+    "failed": false,
+    "value": "ok"
+  },
+  "PHANTOM_LANGUAGE": {
+    "failed": false,
+    "value": "ok"
+  },
+  "PHANTOM_OVERFLOW": {
+    "failed": false,
+    "value": "ok"
+  },
+  "PHANTOM_PROPERTIES": {
+    "failed": false,
+    "value": "ok"
+  },
+  "PHANTOM_UA": {
+    "failed": false,
+    "value": "ok"
+  },
+  "PHANTOM_WEBSOCKET": {
+    "failed": false,
+    "value": "ok"
+  },
+  "PHANTOM_WINDOW_HEIGHT": {
+    "failed": false,
+    "value": "ok"
+  },
+  "Permissions (New)": {
+    "failed": false,
+    "value": "prompt"
+  },
+  "Plugins Length (Old)": {
+    "failed": false,
+    "value": "5"
+  },
+  "Plugins is of type PluginArray": {
+    "failed": false,
+    "value": "passed"
+  },
+  "SELENIUM_DRIVER": {
+    "failed": false,
+    "value": "ok"
+  },
+  "SEQUENTUM": {
+    "failed": false,
+    "value": "ok"
+  },
+  "TRANSPARENT_PIXEL": {
+    "failed": false,
+    "value": "ok"
+  },
+  "User Agent (Old)": {
+    "failed": false,
+    "value": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+  },
+  "VIDEO_CODECS": {
+    "failed": false,
+    "value": "ok"
+  },
+  "WebDriver (New)": {
+    "failed": false,
+    "value": "missing (passed)"
+  },
+  "WebDriver Advanced": {
+    "failed": false,
+    "value": "passed"
+  },
+  "WebGL Renderer": {
+    "failed": false,
+    "value": "ANGLE (AMD, AMD Radeon Graphics (radeonsi rembrandt LLVM 20.1.2), OpenGL 4.6)"
+  },
+  "WebGL Vendor": {
+    "failed": false,
+    "value": "Google Inc. (AMD)"
+  },
+  "navigator.appCodeName": {
+    "failed": false,
+    "value": "document.write(navigator.appCodeName);\n            Mozilla"
+  },
+  "navigator.appName": {
+    "failed": false,
+    "value": "document.write(navigator.appName);\n            Netscape"
+  },
+  "navigator.cookieEnabled": {
+    "failed": false,
+    "value": "document.write(navigator.cookieEnabled);\n            true"
+  },
+  "navigator.doNotTrack": {
+    "failed": false,
+    "value": "document.write(navigator.doNotTrack);\n            null"
+  },
+  "navigator.getBattery details": {
+    "failed": false,
+    "value": "Charging: falseLevel: 0.78"
+  },
+  "navigator.getUserMedia": {
+    "failed": false,
+    "value": "document.write(navigator.getUserMedia());"
+  },
+  "navigator.javaEnabled": {
+    "failed": false,
+    "value": "document.write(navigator.javaEnabled());\n            false"
+  },
+  "navigator.language": {
+    "failed": false,
+    "value": "document.write(navigator.language);\n            fr-FR"
+  },
+  "navigator.loadPurpose": {
+    "failed": false,
+    "value": "document.write(navigator.loadPurpose);\n            undefined"
+  },
+  "navigator.mediaDevices": {
+    "failed": false,
+    "value": "audioinput:  id = videoinput:  id = audiooutput:  id ="
+  },
+  "navigator.msDoNotTrack": {
+    "failed": false,
+    "value": "document.write(navigator.msDoNotTrack);\n            undefined"
+  },
+  "navigator.platform": {
+    "failed": false,
+    "value": "document.write(navigator.platform);\n            Linux x86_64"
+  },
+  "navigator.plugins": {
+    "failed": false,
+    "value": "document.write(JSON.stringify(navigator.plugins));\n            {\"0\":{\"0\":{},\"1\":{}},\"1\":{\"0\":{},\"1\":{}},\"2\":{\"0\":{},\"1\":{}},\"3\":{\"0\":{},\"1\":{}},\"4\":{\"0\":{},\"1\":{}}}"
+  },
+  "navigator.sayswho": {
+    "failed": false,
+    "value": "document.write(navigator.sayswho);\n            undefined"
+  },
+  "navigator.sendBeacon": {
+    "failed": false,
+    "value": "document.write(navigator.sendBeacon());"
+  },
+  "navigator.userAgent": {
+    "failed": false,
+    "value": "document.write(navigator.userAgent);\n            Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+  },
+  "navigator.vendor": {
+    "failed": false,
+    "value": "document.write(navigator.vendor);\n            Google Inc."
+  },
+  "screen.colorDepth": {
+    "failed": false,
+    "value": "document.write(screen.colorDepth);\n            24"
+  },
+  "screen.height": {
+    "failed": false,
+    "value": "document.write(screen.height);\n            1200"
+  },
+  "screen.width": {
+    "failed": false,
+    "value": "document.write(screen.width);\n            1920"
+  }
+}
