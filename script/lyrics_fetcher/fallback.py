@@ -44,6 +44,28 @@ def _is_non_romaji_language_url(url: str) -> bool:
     return _NON_ROMAJI_URL_PATTERN.search(url) is not None
 
 
+class _FetcherTracker:
+    """Thread-safe registry of active fetcher instances for cleanup on early-exit."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._fetchers = []
+
+    def register(self, fetcher):
+        with self._lock:
+            self._fetchers.append(fetcher)
+
+    def stop_all(self):
+        with self._lock:
+            fetchers = list(self._fetchers)
+            self._fetchers.clear()
+        for f in fetchers:
+            try:
+                f.stop()
+            except Exception:
+                pass
+
+
 class _ResultHolder:
     """Thread-safe container for the best lyrics result (3-tier priority).
 
@@ -303,7 +325,8 @@ def _submit_result(lyrics, source, found_event, result_holder, converted=False):
 
 
 def _run_source_pipeline(source, urls, found_event, result_holder, run_log,
-                         artists=None, rate_limiter=None):
+                         artists=None, rate_limiter=None,
+                         fetcher_tracker=None):
     """Run one source through its full fetcher pipeline independently.
 
     1. Fast attempt: REQUESTS (sequential per URL, fast)
@@ -336,7 +359,10 @@ def _run_source_pipeline(source, urls, found_event, result_holder, run_log,
         if found_event.is_set():
             return
         fetcher_cls = _get_fetcher_class(fetcher_type)
-        with fetcher_cls() as fi:
+        fi = fetcher_cls()
+        if fetcher_tracker is not None:
+            fetcher_tracker.register(fi)
+        try:
             if found_event.is_set():
                 return
             lyrics, _, converted = _try_source_with_fetcher(
@@ -346,6 +372,8 @@ def _run_source_pipeline(source, urls, found_event, result_holder, run_log,
             )
             _submit_result(lyrics, source, found_event, result_holder,
                            converted=converted)
+        finally:
+            fi.stop()
 
     threads = []
     for f in escalation_fetchers:
@@ -468,6 +496,7 @@ def get_romaji_lyrics(title: str, artists: list) -> str:
     found_event = threading.Event()
     result_holder = _ResultHolder()
     rate_limiter = RateLimiter(log_dir=log_dir())
+    fetcher_tracker = _FetcherTracker()
 
     pipeline_sources = [s for s in sources if s.name in source_urls]
     executor = ThreadPoolExecutor(max_workers=len(pipeline_sources))
@@ -477,12 +506,14 @@ def get_romaji_lyrics(title: str, artists: list) -> str:
             source, source_urls[source.name],
             found_event, result_holder, run_log,
             artists=artists, rate_limiter=rate_limiter,
+            fetcher_tracker=fetcher_tracker,
         )
         for source in pipeline_sources
     ]
     # Wait for: acceptable result (found_event), all done, or grace period expiry.
     _wait_for_completion(futures, found_event, result_holder)
     executor.shutdown(wait=False)
+    fetcher_tracker.stop_all()
 
     _finalize_run(run_log)
     result = result_holder.acceptable

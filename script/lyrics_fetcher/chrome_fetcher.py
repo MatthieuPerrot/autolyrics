@@ -146,19 +146,30 @@ class ChromeFetcher:
     def fetch(self, url, timeout=60, poll_interval=5):
         """Navigate to *url*, poll until Cloudflare resolves or timeout.
 
-        Lazily starts Chrome on the first call.
+        Lazily starts Chrome on the first call.  Returns None if stop() is
+        called from another thread while fetching.
         """
         if not self._started:
             self.start()
 
-        self._driver.get(url)
+        try:
+            driver = self._driver
+            if driver is None:
+                return None
+            driver.get(url)
 
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            page_source = self._driver.page_source
-            if not self._is_cloudflare_challenge(page_source):
-                return page_source
-            time.sleep(poll_interval)
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                driver = self._driver
+                if driver is None:
+                    return None
+                page_source = driver.page_source
+                if not self._is_cloudflare_challenge(page_source):
+                    return page_source
+                time.sleep(poll_interval)
+        except Exception as e:
+            print(f"⚠️  ChromeFetcher error on {url}: {e}")
+            return None
 
         print(f"⚠️  ChromeFetcher: Cloudflare still blocking after {timeout}s")
         return None

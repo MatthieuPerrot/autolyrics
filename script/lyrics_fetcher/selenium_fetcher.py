@@ -64,7 +64,8 @@ class SeleniumFetcher:
     def fetch(self, url, timeout=15):
         """Navigate to *url* and return page source.
 
-        Lazily starts ChromeDriver on the first call.
+        Lazily starts ChromeDriver on the first call.  Returns None if stop()
+        is called from another thread while fetching.
 
         Returns:
             Page HTML as string, or None on failure.
@@ -73,9 +74,15 @@ class SeleniumFetcher:
             self.start()
 
         try:
-            self._driver.set_page_load_timeout(timeout)
-            self._driver.get(url)
-            return self._driver.page_source
+            driver = self._driver
+            if driver is None:
+                return None
+            driver.set_page_load_timeout(timeout)
+            driver.get(url)
+            driver = self._driver
+            if driver is None:
+                return None
+            return driver.page_source
         except Exception as e:
             print(f"❌ SeleniumFetcher error on {url}: {e}")
             return None

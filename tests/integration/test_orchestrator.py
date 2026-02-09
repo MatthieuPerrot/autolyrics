@@ -868,6 +868,72 @@ class TestParallelEscalation:
     @patch("lyrics_fetcher.selenium_fetcher.SeleniumFetcher")
     @patch("lyrics_fetcher.chrome_fetcher.ChromeFetcher")
     @patch("lyrics_fetcher.fallback._finalize_run")
+    def test_early_exit_stops_escalation_fetchers(
+        self, mock_finalize, mock_chrome_cls, mock_selenium_cls,
+        mock_fetch, mock_registry
+    ):
+        """Fast source returns immediately (early-exit). Slow source gets 403
+        and escalates. Verify stop() is called on the escalation fetcher even
+        though early-exit fired before escalation completed.
+        """
+        stop_called = threading.Event()
+
+        def fetch_side_effect(url):
+            if "fast" in url:
+                # Small delay so slow_source has time to get 403 and enter escalation
+                time.sleep(0.3)
+                return (_MOCK_HTML, 200)
+            # Slow source: 403 triggers escalation
+            return (None, 403)
+
+        sources = [
+            LyricsSource(
+                name="fast_source",
+                search=lambda t, a: ["http://fast.example.com"],
+                parse=lambda h: _romaji_lyrics("fast_source"),
+                fetchers=(Fetcher.REQUESTS,),
+                romaji_quality=5,
+            ),
+            LyricsSource(
+                name="slow_source",
+                search=lambda t, a: ["http://slow.example.com"],
+                parse=lambda h: _romaji_lyrics("slow_source"),
+                fetchers=(Fetcher.REQUESTS, Fetcher.SELENIUM),
+                romaji_quality=2,
+            ),
+        ]
+        mock_registry.return_value = sources
+        mock_fetch.side_effect = fetch_side_effect
+
+        # Selenium: slow fetch (2s) — early-exit should stop it
+        mock_sf = MagicMock()
+        def slow_selenium_fetch(url):
+            time.sleep(2.0)
+            return _MOCK_HTML
+        mock_sf.fetch.side_effect = slow_selenium_fetch
+        original_stop = mock_sf.stop
+        def tracking_stop():
+            original_stop()
+            stop_called.set()
+        mock_sf.stop = MagicMock(side_effect=tracking_stop)
+        mock_selenium_cls.return_value = mock_sf
+
+        result = get_romaji_lyrics("TEST", ["ARTIST"])
+
+        assert_contains_text(result, "lyrics_from_fast_source")
+        # stop() must be called on the escalation fetcher (either by finally
+        # block in escalation thread or by fetcher_tracker.stop_all)
+        stop_was_called = stop_called.wait(timeout=5.0)
+        assert_true(
+            stop_was_called,
+            "stop() should be called on escalation fetcher after early-exit",
+        )
+
+    @patch("lyrics_fetcher.fallback.build_registry")
+    @patch("lyrics_fetcher.fallback._fetch_requests")
+    @patch("lyrics_fetcher.selenium_fetcher.SeleniumFetcher")
+    @patch("lyrics_fetcher.chrome_fetcher.ChromeFetcher")
+    @patch("lyrics_fetcher.fallback._finalize_run")
     def test_escalation_first_success_wins(
         self, mock_finalize, mock_chrome_cls, mock_selenium_cls,
         mock_fetch, mock_registry
